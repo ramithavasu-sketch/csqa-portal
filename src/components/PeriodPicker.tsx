@@ -24,7 +24,7 @@ export function usePeriodSelection(includeDrafts = false): [PeriodSelection, (mo
   return [sel, set, periods];
 }
 
-export function PeriodPicker({ sel, onChange, periods, showVs = true }: { sel: PeriodSelection; onChange: (m: PeriodMode, a?: string) => void; periods: Period[]; /** show the "vs previous period" label */ showVs?: boolean }) {
+export function PeriodPicker({ sel, onChange, periods, showVs = false }: { sel: PeriodSelection; onChange: (m: PeriodMode, a?: string) => void; periods: Period[]; /** show the "vs previous period" label (off everywhere by request) */ showVs?: boolean }) {
   const sorted = [...periods].sort((a, b) => b.start_date.localeCompare(a.start_date));
   const [from, to] = sel.mode === 'custom' ? sel.anchor.split('..') : ['', ''];
   return (
