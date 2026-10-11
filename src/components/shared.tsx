@@ -41,10 +41,12 @@ export function DownloadMenu({ build, label = 'Download Report', empty }: { buil
 }
 
 /** Parameter-level table + bar chart per task type, with drill-down to the related tasks. */
-export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settings, compare = true }: {
+export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settings, compare = true, showTable = true }: {
   cur: Evaluation[]; prev: Evaluation[]; parameters: Parameter[]; taskTypeNames: Record<string, string>; settings: PortalSettings;
   /** false = show the selected period only (no previous / variance columns) */
   compare?: boolean;
+  /** false = chart only (the table is shown elsewhere, e.g. in the CAM deep dive) */
+  showTable?: boolean;
 }) {
   const stats = useMemo(() => parameterStats(cur, parameters, taskTypeNames), [cur, parameters, taskTypeNames]);
   const prevStats = useMemo(() => new Map(parameterStats(prev, parameters, taskTypeNames).map((s) => [s.parameter.id, s])), [prev, parameters, taskTypeNames]);
@@ -68,11 +70,12 @@ export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settin
         ))}
         <span className="ml-auto flex items-center gap-1 text-[12px] text-muted">How % is calculated <InfoTip term="Parameter %" /></span>
       </div>
-      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+      <div className={clsx('grid gap-4', showTable && '2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]')}>
         <div className="min-w-0">
           <ParameterBars stats={list} settings={settings} onSelect={setDrill} />
           <p className="mt-1 text-[12px] text-muted">{typeTasks.length} {taskTypeNames[activeType]} task(s) · {typeTasks.filter((e) => e.autofail).length} autofail(s) excluded from parameter %. Dashed line = {settings.qa_target.score}% target. Click a bar for tasks.</p>
         </div>
+        {showTable && (
         <Table>
           <thead><tr>
             <th className={th}>Parameter</th><th className={th + ' text-right'}>Max</th><th className={th + ' text-right'}>Earned</th>
@@ -103,6 +106,7 @@ export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settin
             ))}
           </tbody>
         </Table>
+        )}
       </div>
       <Modal open={!!drill} onClose={() => setDrill(null)} title={drill ? `${drill.parameter.name} · ${drill.taskTypeName}` : ''} wide>
         {drill && (

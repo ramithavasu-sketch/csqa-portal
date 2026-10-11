@@ -65,13 +65,15 @@ export function CamDeepDive({ camName, cur, sel }: { camName: string; cur: Evalu
         <div>
           <div className="mb-2 text-[13.5px] font-semibold">Parameters checked this week · missed tasks listed under each</div>
           <Table>
-            <thead><tr><th className={th}>Parameter / missed task</th><th className={th + ' text-right'}>% achieved</th><th className={th + ' text-right'}>Tasks checked</th><th className={th + ' text-right'}>Missed</th><th className={th + ' text-right'}>Points lost</th><th className={th}>QA remarks / feedback</th></tr></thead>
+            <thead><tr><th className={th}>Parameter / missed task</th><th className={th + ' text-right'}>Max</th><th className={th + ' text-right'}>Earned</th><th className={th + ' text-right'}>% achieved</th><th className={th + ' text-right'}>Tasks checked</th><th className={th + ' text-right'}>Missed</th><th className={th + ' text-right'}>Points lost</th><th className={th}>QA remarks / feedback</th></tr></thead>
             <tbody>{rows.map((m) => {
               const items = lost.filter((l) => l.x.parameter_id === m.parameter.id);
               return (
                 <Fragment key={m.parameter.id}>
                   <tr className={items.length ? 'bg-sunken/50' : ''}>
                     <td className={td}><span className="font-medium">{m.parameter.name}</span> <span className="text-[12px] text-muted">· {m.taskTypeName}</span></td>
+                    <td className={td + ' text-right tnum'}>{m.parameter.max_score}</td>
+                    <td className={td + ' text-right tnum'}>{m.earned}/{m.max}</td>
                     <td className={td + ' text-right'}><ScoreBadge score={m.pct} settings={s} /></td>
                     <td className={td + ' text-right tnum'}>{m.evaluated}</td>
                     <td className={td + ' text-right tnum'}>{m.deductions ? <span className="font-semibold text-bad">{m.deductions}</span> : 0}</td>
@@ -81,8 +83,9 @@ export function CamDeepDive({ camName, cur, sel }: { camName: string; cur: Evalu
                   {items.map(({ e, x }) => (
                     <tr key={x.id}>
                       <td className={td + ' whitespace-nowrap pl-8'}><Link to={`/evaluations/${e.id}`} className="font-mono text-[12px] text-brand hover:underline">{e.task_id.slice(0, 8)}</Link> <span className="text-[11.5px] text-muted">{e.task_type_name}</span></td>
+                      <td className={td} />
                       <td className={td + ' text-right tnum text-bad'}>{x.earned}/{x.max_score}</td>
-                      <td className={td} /><td className={td} />
+                      <td className={td} /><td className={td} /><td className={td} />
                       <td className={td + ' text-right tnum text-bad'}>{Number(x.max_score) - Number(x.earned)}</td>
                       <td className={td + ' max-w-[560px] whitespace-pre-wrap text-[12.5px] text-muted'}>{x.remarks || e.feedback || '—'}</td>
                     </tr>

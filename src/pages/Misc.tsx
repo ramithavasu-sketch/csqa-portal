@@ -36,7 +36,7 @@ export function ParametersPage() {
       </div>
       <ErrorBox error={data.error} />
       {data.loading ? <Loading /> : (<>
-        <Card title="Parameters" subtitle={`${sel.label} only${cam ? ` · ${camName}` : ''} · parameters with no tasks this period are hidden`}><ParameterAnalysis cur={data.cur} prev={data.prev} parameters={ref.parameters} taskTypeNames={ref.taskTypeNames} settings={ref.settings} compare={false} /></Card>
+        <Card title="Parameters" subtitle={`${sel.label} only${cam ? ` · ${camName} · full table in the deep dive below` : ''} · parameters with no tasks this period are hidden`}><ParameterAnalysis cur={data.cur} prev={data.prev} parameters={ref.parameters} taskTypeNames={ref.taskTypeNames} settings={ref.settings} compare={false} showTable={!cam} /></Card>
         {data.cur.length > 0 && !cam && <Card title="Strengths and improvement areas" subtitle={sel.label}><InsightsPanel insights={insights} hide={['positive', 'declining']} /></Card>}
         {cam && <div id="pa-deep" className="scroll-mt-4" />}
         {cam && <CamDeepDive camName={camName} cur={data.cur} sel={sel} />}
