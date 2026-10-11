@@ -39,8 +39,7 @@ export function ParametersPage() {
         <Card title="Parameters" subtitle={`${sel.label} only${cam ? ` · ${camName}` : ''} · parameters with no tasks this period are hidden`}><ParameterAnalysis cur={data.cur} prev={data.prev} parameters={ref.parameters} taskTypeNames={ref.taskTypeNames} settings={ref.settings} compare={false} /></Card>
         {data.cur.length > 0 && !cam && <Card title="Strengths and improvement areas" subtitle={sel.label}><InsightsPanel insights={insights} hide={['positive', 'declining']} /></Card>}
         {cam && <div id="pa-deep" className="scroll-mt-4" />}
-        {cam && <CamDeepDive camName={camName} cur={data.cur} sel={sel}
-          compareLabel={isQaRole(me!.role) ? 'All CAMs' : me!.role === 'admin' ? 'Your team' : null} />}
+        {cam && <CamDeepDive camName={camName} cur={data.cur} sel={sel} />}
         <div id="pa-compare" className="scroll-mt-4" />
         <WeekCompare camIds={cam ? [cam] : undefined} endId={sel.current[sel.current.length - 1]?.id} periods={isQaRole(me!.role) ? ref.periods : ref.publishedPeriods}
           scopeLabel={cam ? camName : me!.role === 'admin' ? 'Your whole team' : 'All CAMs'} />
