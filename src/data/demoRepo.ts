@@ -1272,6 +1272,15 @@ export class DemoRepo implements Repo {
     return res;
   }
 
+  // ------------------------------------------------------------------ weekly scorecard (demo: simulated)
+  private scHist: { id: string; period: string; created_at: string; created_by_name: string | null; recipients: string; status: string | null; sent_at: string | null; last_error: string | null }[] = [];
+  async queueScorecard(periodId: string, m: { subject: string; html: string; text: string; to: string; cc: string }) {
+    this.require(this.isQa(), 'Only QA can send the weekly scorecard');
+    this.require(!!m.to.trim(), 'Add at least one recipient in To');
+    this.scHist.unshift({ id: uid(), period: periodId, created_at: nowIso(), created_by_name: this.me().full_name, recipients: m.to + (m.cc ? ` | cc ${m.cc}` : ''), status: 'sent', sent_at: nowIso(), last_error: null });
+  }
+  async scorecardHistory(periodId: string) { return this.scHist.filter((h) => h.period === periodId); }
+
   // ------------------------------------------------------------------ feedback sessions (demo: computed, changes kept in memory)
   private fb = new Map<string, Partial<import('../lib/types').FeedbackSession>>();
   private fbCycle() {

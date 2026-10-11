@@ -7,6 +7,7 @@ import { PageHeader } from '../components/Layout';
 import { Button, Card, ConfirmModal, EmptyState, ErrorBox, Field, Loading, Pill, Table, td, th, inputBase, inputCls, textareaCls, useToast } from '../components/ui';
 import { fmtDateTime, fmtRange } from '../lib/metrics';
 import { renderReportEmail } from '../lib/email';
+import { ScorecardCard } from '../components/ScorecardCard';
 import type { PortalSettings, WeeklyEmailRow } from '../lib/types';
 
 export default function WeeklyEmailsPage() {
@@ -95,6 +96,8 @@ export default function WeeklyEmailsPage() {
           ) : <p className="text-[13px] text-muted">Choose a week with audits.</p>}
         </Card>
       </div>
+
+      {period && <ScorecardCard key={period.id} period={period} />}
 
       {me?.role === 'super_admin' && <TemplateEditor settings={s} onSaved={async () => { await reloadRef(); toast('Email template saved.'); }} />}
 

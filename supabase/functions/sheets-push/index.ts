@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     // Portal emails to send from the QA owner's Gmail (invites, password links, notifications, weekly reports).
     if (body?.action === 'outbox') {
-      const { data, error } = await serviceClient().from('email_outbox').select('id, recipient_email, cc_email, reply_to, subject, body_text, body_html, kind')
+      const { data, error } = await serviceClient().from('email_outbox').select('id, recipient_email, cc_email, reply_to, subject, body_text, body_html, kind, from_email, from_name')
         .eq('status', 'queued').lt('attempts', 3).order('created_at').limit(40);
       if (error) throw new HttpError(500, error.message);
       return json({ emails: data ?? [] });
@@ -126,8 +126,16 @@ Deno.serve(async (req) => {
       await admin.from('import_rejections').insert(mapped.rejections.map((x) => ({ batch_id, row_number: x.row_number, reason: x.reason })));
       await admin.from('import_batches').update({ rejected: totals.rejected + mapped.rejections.length }).eq('id', batch_id);
     }
-    if (totals.inserted > 0) await admin.rpc('refresh_open_feedback_cycles').then(() => {}, () => {});   // providers follow new audits
-    return json({ rows: rows.length, ...totals, rejected: totals.rejected + mapped.rejections.length, batch_id });
+    // rows already in the portal that were edited in the sheet (e.g. changed to Auto-Fail): update them
+    let updated = 0; const conflicts: unknown[] = [];
+    for (let i = 0; i < mapped.rows.length; i += 400) {
+      const res = await admin.rpc('resync_evaluations', { p_rows: mapped.rows.slice(i, i + 400) });
+      if (res.error) throw new HttpError(500, res.error.message);
+      const d = res.data as { updated: number; conflicts: unknown[] };
+      updated += d.updated; conflicts.push(...(d.conflicts ?? []));
+    }
+    if (totals.inserted > 0 || updated > 0) await admin.rpc('refresh_open_feedback_cycles').then(() => {}, () => {});   // providers follow new audits
+    return json({ rows: rows.length, ...totals, updated, conflicts: conflicts.slice(0, 50), rejected: totals.rejected + mapped.rejections.length, batch_id });
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : String(e) }, e instanceof HttpError ? e.status : 500);
   }

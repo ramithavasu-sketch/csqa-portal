@@ -374,6 +374,16 @@ export class SupabaseRepo implements Repo {
   async historicalCams() { return this.rpc<import('../lib/types').HistoricalCam[]>('historical_cams', {}); }
   async mergeEmployee(fromId: string, intoId: string) { return this.rpc<{ moved: number }>('merge_employee', { p_from: fromId, p_into: intoId }); }
 
+  // ---------------------------------------------------------------- weekly scorecard
+  async queueScorecard(periodId: string, m: { subject: string; html: string; text: string; to: string; cc: string }) {
+    await this.rpc('queue_scorecard_email', { p_period: periodId, p_subject: m.subject, p_html: m.html, p_text: m.text, p_to: m.to, p_cc: m.cc });
+  }
+  async scorecardHistory(periodId: string) {
+    const { data, error } = await this.sb.rpc('scorecard_history', { p_period: periodId });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Awaited<ReturnType<import('./repo').Repo['scorecardHistory']>>;
+  }
+
   // ---------------------------------------------------------------- feedback sessions
   async listFeedbackCycles() {
     return unwrap(await this.sb.from('feedback_cycles').select('*').order('number', { ascending: false })) as import('../lib/types').FeedbackCycle[];

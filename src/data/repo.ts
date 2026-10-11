@@ -98,6 +98,11 @@ export interface Repo {
   exportSetup?(): Promise<SetupFile>;
   importSetup?(file: SetupFile): Promise<{ employees: number; teams: number }>;
 
+  // ---- weekly overall scorecard
+  /** QA: queue the scorecard email (sent by the sheet script from the configured address). */
+  queueScorecard(periodId: string, mail: { subject: string; html: string; text: string; to: string; cc: string }): Promise<void>;
+  scorecardHistory(periodId: string): Promise<{ id: string; created_at: string; created_by_name: string | null; recipients: string; status: string | null; sent_at: string | null; last_error: string | null }[]>;
+
   // ---- feedback sessions
   listFeedbackCycles(): Promise<FeedbackCycle[]>;
   listFeedbackSessions(cycleId?: string): Promise<FeedbackSession[]>;

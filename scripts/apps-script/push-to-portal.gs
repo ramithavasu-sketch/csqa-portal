@@ -33,21 +33,22 @@ const TABS = [
 ];
 
 const CHUNK = 1000;           // rows per request
-const OVERLAP = 50;           // re-send the last rows each time, in case recent ones were edited
+const OVERLAP = 1500;         // re-send about the last 4 weeks of rows each time, so edits (e.g. a change to Auto-Fail) reach the portal
 const TIME_BUDGET_MS = 4.5 * 60 * 1000; // Apps Script stops at 6 minutes; continue on the next run
 
-function pushToPortal() {
+function pushToPortal(overlap) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(60 * 1000)) return 'Another sync is running; this one was skipped';
-  try { return pushToPortalLocked(); } finally { lock.releaseLock(); }
+  // scheduled / manual runs re-check about the last 4 weeks for sheet edits; a form submit only sends the newest rows
+  try { return pushToPortalLocked(typeof overlap === 'number' ? overlap : OVERLAP); } finally { lock.releaseLock(); }
 }
 
 /** Runs the moment someone submits the audit form (installed by installTrigger). */
 function onAuditSubmitted(e) {
-  return pushToPortal();
+  return pushToPortal(10);
 }
 
-function pushToPortalLocked() {
+function pushToPortalLocked(overlap) {
   const secret = (PropertiesService.getScriptProperties().getProperty('PORTAL_PUSH_SECRET') || '').trim().replace(/^['"]+|['"]+$/g, '').trim();
   if (!secret) throw new Error('Add PORTAL_PUSH_SECRET under Project Settings → Script Properties first.');
   const started = Date.now();
@@ -66,7 +67,7 @@ function pushToPortalLocked() {
     // If the tab got shorter than where we stopped last time (rows deleted, sorted or moved),
     // start again from the top: rows already in the portal are skipped as duplicates.
     if (Number(props.getProperty(key) || 0) > lastRow) props.deleteProperty(key);
-    let from = Math.max(2, Number(props.getProperty(key) || 1) + 1 - OVERLAP);
+    let from = Math.max(2, Number(props.getProperty(key) || 1) + 1 - (overlap ?? OVERLAP));
     let totals = { inserted: 0, duplicates: 0, rejected: 0 };
 
     while (from <= lastRow) {
@@ -81,10 +82,12 @@ function pushToPortalLocked() {
       const body = JSON.parse(res.getContentText() || '{}');
       if (res.getResponseCode() !== 200) throw new Error(`Portal refused rows ${from}–${to}: ${body.error || res.getResponseCode()}`);
       totals.inserted += body.inserted || 0; totals.duplicates += body.duplicates || 0; totals.rejected += body.rejected || 0;
+      totals.updated = (totals.updated || 0) + (body.updated || 0);
+      (body.conflicts || []).forEach((c) => console.log('Not updated (appeal / QA correction): row ' + c.row + ' ' + c.cam + ' ' + c.task_link));
       props.setProperty(key, String(to));
       from = to + 1;
     }
-    summary.push(`${tab.name}: ${totals.inserted} new · ${totals.duplicates} already in the portal · ${totals.rejected} rejected`);
+    summary.push(`${tab.name}: ${totals.inserted} new · ${totals.updated || 0} updated from sheet edits · ${totals.duplicates} already in the portal · ${totals.rejected} rejected`);
   }
   try { summary.push(pullScoreChangesLocked()); } catch (e) { summary.push('Score changes: ' + e.message); }
   console.log(summary.join('\n'));
@@ -392,7 +395,18 @@ function sendPortalEmails() {
         if (m.body_html) opts.htmlBody = m.body_html;
         if (m.cc_email) opts.cc = m.cc_email;
         if (m.reply_to) opts.replyTo = m.reply_to;
-        MailApp.sendEmail(opts);
+        if (m.from_email) {
+          // e.g. the weekly scorecard from the shared QA mailbox: needs that address under
+          // Gmail → Settings → Accounts → "Send mail as" (Gmail only allows aliases set up there)
+          const from = String(m.from_email).toLowerCase();
+          if (!GmailApp.getAliases().map((a) => a.toLowerCase()).includes(from) && Session.getEffectiveUser().getEmail().toLowerCase() !== from) {
+            throw new Error(m.from_email + ' is not a "Send mail as" address in this Gmail. Add it in Gmail → Settings → Accounts, then it will retry.');
+          }
+          GmailApp.sendEmail(m.recipient_email, m.subject, m.body_text || ' ', { htmlBody: m.body_html || undefined, cc: m.cc_email || undefined,
+            replyTo: m.reply_to || undefined, from: m.from_email, name: m.from_name || 'quality assurance' });
+        } else {
+          MailApp.sendEmail(opts);
+        }
         results.push({ id: m.id, ok: true });
       } catch (e) { results.push({ id: m.id, ok: false, error: String(e.message || e) }); }
     }
