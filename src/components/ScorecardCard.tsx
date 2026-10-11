@@ -3,7 +3,7 @@ import { ExternalLink, Send } from 'lucide-react';
 import { useApp, useAsync, useRef_ } from '../app/context';
 import { repo, isDemo, isLocal } from '../data';
 import { Button, Card, ErrorBox, Field, Loading, Modal, Pill, inputCls, textareaCls, useToast } from './ui';
-import { buildScorecard, scorecardTeams } from '../lib/scorecard';
+import { buildScorecard, buildScorecardSummary, scorecardTeams } from '../lib/scorecard';
 import { fmtDateTime } from '../lib/metrics';
 import type { Evaluation, Period } from '../lib/types';
 
@@ -19,6 +19,7 @@ export function ScorecardCard({ period }: { period: Period }) {
   const [to, setTo] = useState(cfg.to);
   const [cc, setCc] = useState(cfg.cc);
   const [chatLead, setChatLead] = useState(cfg.chat_lead_id ?? '');
+  const [format, setFormat] = useState<'new' | 'classic'>(cfg.format ?? 'new');
   const [excl, setExcl] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState(false);
   const [ticked, setTicked] = useState(false);
@@ -36,9 +37,9 @@ export function ScorecardCard({ period }: { period: Period }) {
   }, [evals.data, chatLead]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const next = ref.periods.find((p) => p.start_date > period.start_date);
-  const mail = useMemo(() => (evals.data ? buildScorecard({ period, evals: list, employees: ref.employees, teams: ref.teams, parameters: ref.parameters,
+  const mail = useMemo(() => (evals.data ? (format === 'new' ? buildScorecardSummary : buildScorecard)({ period, evals: list, employees: ref.employees, teams: ref.teams, parameters: ref.parameters,
     taskTypes: ref.taskTypes, settings: s, chatLeadId: chatLead || null, exclusions: excl, nextWeekLabel: next?.short_label ?? 'next week' }) : null),
-  [evals.data, excl, chatLead, period, ref, s, next]); // eslint-disable-line react-hooks/exhaustive-deps
+  [evals.data, excl, chatLead, period, ref, s, next, format]); // eslint-disable-line react-hooks/exhaustive-deps
   const count = (v: string) => v.split(/[\s,;]+/).filter(Boolean).length;
 
   const openInBrowser = () => {
@@ -50,7 +51,7 @@ export function ScorecardCard({ period }: { period: Period }) {
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
   const saveDefaults = async () => {
-    try { await repo.updateSetting('scorecard', { ...cfg, to: to.trim(), cc: cc.trim(), chat_lead_id: chatLead || null }); await reloadRef(); toast('Saved as the default recipients and Chat Team lead.'); }
+    try { await repo.updateSetting('scorecard', { ...cfg, to: to.trim(), cc: cc.trim(), chat_lead_id: chatLead || null, format }); await reloadRef(); toast('Saved as the default recipients, Chat Team lead and format.'); }
     catch (e) { toast(e instanceof Error ? e.message : String(e), 'bad'); }
   };
   const send = async () => {
@@ -77,10 +78,13 @@ export function ScorecardCard({ period }: { period: Period }) {
           <div className="grid gap-3 lg:grid-cols-2">
             <Field label={`To (${count(to)})`} htmlFor="sc-to"><textarea id="sc-to" rows={3} className={textareaCls} value={to} onChange={(e) => setTo(e.target.value)} /></Field>
             <Field label={`Cc (${count(cc)})`} htmlFor="sc-cc"><textarea id="sc-cc" rows={3} className={textareaCls} value={cc} onChange={(e) => setCc(e.target.value)} /></Field>
+            <Field label="Format" htmlFor="sc-format"><select id="sc-format" className={inputCls} value={format} onChange={(e) => setFormat(e.target.value as 'new' | 'classic')}>
+              <option value="new">New — summary, needs attention, top issues, autofails with full feedback</option>
+              <option value="classic">Classic — full CAM × parameter grid (as sent before)</option></select></Field>
             <Field label="Chat Team = CAMs of this Team Lead" htmlFor="sc-lead"><select id="sc-lead" className={inputCls} value={chatLead} onChange={(e) => setChatLead(e.target.value)}>
               <option value="">No Chat Team table</option>{leads.map((l) => <option key={l.id} value={l.id}>{l.full_name}</option>)}</select></Field>
             <div className="text-[12.5px] text-muted">From: <strong className="text-ink">{cfg.from_name} &lt;{cfg.from_email || 'your Gmail'}&gt;</strong>
-              {isSuper && <div className="mt-2"><Button size="sm" variant="ghost" onClick={saveDefaults}>Save To, Cc and Chat Team lead as default</Button></div>}</div>
+              {isSuper && <div className="mt-2"><Button size="sm" variant="ghost" onClick={saveDefaults}>Save To, Cc, Chat Team lead and format as default</Button></div>}</div>
             {Object.keys(excl).map((k) => (
               <Field key={k} label={`Exclusion list · ${k === 'cs' ? 'CS Team' : 'Chat Team'} (not audited this week — edit as needed)`} htmlFor={`sc-ex-${k}`}>
                 <textarea id={`sc-ex-${k}`} rows={3} className={textareaCls} value={excl[k]} onChange={(e) => setExcl({ ...excl, [k]: e.target.value })} /></Field>

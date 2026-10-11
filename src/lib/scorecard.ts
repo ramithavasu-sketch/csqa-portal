@@ -137,3 +137,85 @@ export function buildScorecard(o: {
   text += `\nDetailed feedback: ${link}\n\nRegards,\n${s.report_email.sender_name || 'CS QA Team'}\nQuality Assurance | FULL Creative\n`;
   return { subject: `Task Audit Scorecard - ${o.period.label}`, html, text, teams };
 }
+
+/**
+ * New layout: headline cards, team summary, CAMs needing attention, top issues,
+ * autofails with full QA feedback, top performers and who wasn't audited.
+ * Same numbers as the classic grid (an autofail counts as a miss on every parameter).
+ */
+export function buildScorecardSummary(o: Parameters<typeof buildScorecard>[0]) {
+  const s = o.settings;
+  const teams = scorecardTeams(o.evals, o.employees, o.teams, o.chatLeadId);
+  const link = reportLink(s, o.period);
+  const all = teams.flatMap((t) => t.evals);
+  const avg = (l: Evaluation[]) => (l.length ? l.reduce((a, e) => a + Number(e.score), 0) / l.length : null);
+  const isMiss = (e: Evaluation, p: Parameter) => e.task_type === p.task_type && e.scores.some((x) => x.parameter_id === p.id && x.earned !== null && (e.autofail || Number(x.earned) < Number(x.max_score)));
+  const typeShort = (code: string) => ({ ER: 'Email', CHAT: 'Chat', IB_CALL: 'Calls', INTERNAL: 'Internal' } as Record<string, string>)[code] ?? (o.taskTypes.find((t) => t.code === code)?.name ?? code);
+  const issues = (list: Evaluation[]) => o.parameters.map((p) => {
+    const n = list.filter((e) => e.task_type === p.task_type).length;
+    const m = list.filter((e) => isMiss(e, p)).length;
+    return { p, n, m, pct: n ? (100 * m) / n : 0 };
+  }).filter((x) => x.m > 0);
+  const byCam = new Map<string, Evaluation[]>();
+  for (const e of all) byCam.set(e.cam_id, [...(byCam.get(e.cam_id) ?? []), e]);
+  const cams = [...byCam.values()].map((l) => ({ name: l[0].cam_name || l[0].cam_email, lead: l[0].lead_name, avg: avg(l)!, af: l.filter((e) => e.autofail).length, list: l }));
+  const attention = cams.filter((c) => c.avg < 90 || c.af > 0).sort((a, b) => a.avg - b.avg);
+  const perfect = cams.filter((c) => c.avg >= 100).map((c) => c.name).sort();
+  const afs = all.filter((e) => e.autofail).sort((a, b) => a.audited_at.localeCompare(b.audited_at));
+  const A = avg(all);
+
+  const F = 'font-family:Arial,sans-serif;color:#222;';
+  const P = `${F}font-size:14px;margin:0 0 10px;`;
+  const H = `${F}font-size:15px;font-weight:bold;margin:20px 0 6px;`;
+  const TH = 'padding:6px 8px;border-bottom:1px solid #ccc;font-size:12px;color:#555;text-align:left;font-weight:bold;';
+  const TD = 'padding:6px 8px;border-bottom:1px solid #eee;font-size:13px;vertical-align:top;text-align:left;';
+  const tbl = (inner: string) => `<table cellspacing="0" cellpadding="0" style="${F}border-collapse:collapse;width:100%;max-width:980px">${inner}</table>`;
+  const scoreColor = (v: number | null) => (v === null ? '#222' : v >= s.qa_target.score ? '#1e7b34' : v >= 90 ? '#b26a00' : '#c0392b');
+  const card = (label: string, value: string, sub: string, color = '#222') =>
+    `<td style="padding:10px 14px;background:#f4f6f8;border-radius:6px;vertical-align:top;width:25%"><div style="${F}font-size:12px;color:#666">${esc(label)}</div><div style="${F}font-size:22px;font-weight:bold;color:${color}">${value}</div><div style="${F}font-size:12px;color:#666">${sub}</div></td>`;
+
+  let h = `<div style="${F}font-size:14px">`;
+  h += `<p style="${P}">Hello all,</p><p style="${P}">Here is the QA summary for <b>${esc(o.period.label)}</b>. Full CAM and parameter details are in the <a href="${esc(link)}" style="color:#1155cc">CS QA Portal</a>.</p>`;
+  h += `<table cellspacing="8" cellpadding="0" style="border-collapse:separate;width:100%;max-width:980px;margin:0 -8px"><tr>`;
+  h += card('Tasks reviewed', String(all.length), teams.filter((t) => t.evals.length).map((t) => `${t.key === 'cs' ? 'CS' : 'Chat'} ${t.evals.length}`).join(' · '));
+  h += card('Overall QA score', pct2(A), `target ${s.qa_target.score}% ${A !== null && A >= s.qa_target.score ? '✓' : ''}`, scoreColor(A));
+  h += card('Autofails', String(afs.length), teams.filter((t) => t.evals.length).map((t) => `${t.key === 'cs' ? 'CS' : 'Chat'} ${t.evals.filter((e) => e.autofail).length}`).join(' · '), afs.length ? '#c0392b' : '#1e7b34');
+  h += card('Perfect 100%', String(perfect.length), 'CAMs', '#1e7b34');
+  h += '</tr></table>';
+
+  h += `<p style="${H}">Team summary</p>`;
+  h += tbl(`<tr><td style="${TH}">Team</td><td style="${TH}">CAMs</td><td style="${TH}">Tasks</td><td style="${TH}">Score</td><td style="${TH}">Autofails</td><td style="${TH}">Most missed</td></tr>` +
+    teams.filter((t) => t.evals.length).map((t) => {
+      const top = issues(t.evals).sort((a, b) => b.m - a.m)[0];
+      const v = avg(t.evals);
+      return `<tr><td style="${TD}">${t.title === 'CS TEAM' ? 'CS Team' : 'Chat Team'}</td><td style="${TD}">${t.camIds.size}</td><td style="${TD}">${t.evals.length}</td><td style="${TD}color:${scoreColor(v)};font-weight:bold">${pct2(v)}</td><td style="${TD}">${t.evals.filter((e) => e.autofail).length}</td><td style="${TD}">${top ? `${esc(typeShort(top.p.task_type))} · ${esc(top.p.name)} (${top.m} of ${top.n})` : '—'}</td></tr>`;
+    }).join(''));
+
+  h += `<p style="${H}">Needs attention <span style="font-weight:normal;font-size:12px;color:#666">(below 90% or an autofail)</span></p>`;
+  h += attention.length ? tbl(`<tr><td style="${TH}">CAM</td><td style="${TH}">Team Lead</td><td style="${TH}">Score</td><td style="${TH}">Autofail</td><td style="${TH}">Most missed</td></tr>` +
+    attention.map((c) => {
+      const top = issues(c.list.filter((e) => !e.autofail)).sort((a, b) => b.m - a.m)[0];
+      return `<tr><td style="${TD}">${esc(c.name)}</td><td style="${TD}">${esc(c.lead ?? '—')}</td><td style="${TD}color:${scoreColor(c.avg)};font-weight:bold">${pct2(c.avg)}</td><td style="${TD}">${c.af ? `<span style="background:#fde2e1;color:#c0392b;padding:1px 6px;border-radius:4px;font-size:12px">${c.af} autofail${c.af > 1 ? 's' : ''}</span>` : ''}</td><td style="${TD}">${top ? `${esc(typeShort(top.p.task_type))} · ${esc(top.p.name)} (${top.m})` : (c.af ? 'Autofail only' : '—')}</td></tr>`;
+    }).join('')) : `<p style="${P}">Nobody below 90% and no autofails this week.</p>`;
+
+  const topIssues = issues(all).sort((a, b) => b.pct - a.pct || b.m - a.m).slice(0, 5);
+  if (topIssues.length) {
+    h += `<p style="${H}">Top issues this week <span style="font-weight:normal;font-size:12px;color:#666">(% of that task type's tasks)</span></p>`;
+    h += tbl(topIssues.map((x) => `<tr><td style="${TD}width:45%">${esc(typeShort(x.p.task_type))} · ${esc(x.p.name)}</td><td style="${TD}"><table cellspacing="0" cellpadding="0" style="display:inline-table;vertical-align:middle"><tr><td style="background:#f6b26b;height:8px;width:${Math.max(4, Math.round(x.pct * 3))}px;font-size:0;line-height:0">&nbsp;</td></tr></table> ${Math.round(x.pct)}% (${x.m} of ${x.n})</td></tr>`).join(''));
+  }
+
+  h += `<p style="${H}">Autofails (${afs.length})</p>`;
+  h += afs.length ? tbl(`<tr><td style="${TH}">CAM</td><td style="${TH}">Type</td><td style="${TH}">Task</td><td style="${TH}">QA feedback</td></tr>` +
+    afs.map((e) => `<tr><td style="${TD}white-space:nowrap">${esc(e.cam_name || e.cam_email)}</td><td style="${TD}">${esc(typeShort(e.task_type))}</td><td style="${TD}"><a href="${esc(e.task_link)}" style="color:#1155cc">${esc(e.task_id.slice(0, 8))}</a>${e.connection_id ? `<br><span style="font-size:11px;color:#666">${esc(e.connection_id)}</span>` : ''}</td><td style="${TD}white-space:pre-wrap">${esc(e.feedback ?? '')}</td></tr>`).join('')) : `<p style="${P}">No autofails this week. 🎉</p>`;
+
+  if (perfect.length) h += `<p style="${H}">Top performers</p><p style="${P}">${perfect.length} CAM${perfect.length > 1 ? 's' : ''} scored 100%: ${perfect.map(esc).join(', ')}.</p>`;
+  const excl = teams.flatMap((t) => (o.exclusions[t.key] ?? '').split(/[\n,]+/).map((x) => x.trim()).filter(Boolean).map((x) => `${esc(x)} (${t.key === 'cs' ? 'CS' : 'Chat'})`));
+  if (excl.length) h += `<p style="${H}">Not audited this week</p><p style="${P}">${excl.join(' · ')}</p>`;
+
+  h += `<p style="${P}margin-top:18px">${afs.length ? `Let’s aim for zero autofails in ${esc(o.nextWeekLabel)}. ` : ''}<a href="${esc(link)}" style="color:#1155cc">Open the full ${esc(o.period.short_label)} report in the portal</a>${s.feedback?.booking_url ? ` · <a href="${esc(s.feedback.booking_url)}" style="color:#1155cc">Book your feedback session</a>` : ''}</p>`;
+  h += `<p style="${P}">Regards,<br>${esc(s.report_email.sender_name || 'CS QA Team')}<br>Quality Assurance | FULL Creative</p></div>`;
+
+  const text = `QA summary for ${o.period.label}\nTasks reviewed: ${all.length}\nOverall QA score: ${pct2(A)}\nAutofails: ${afs.length}\n` +
+    afs.map((e) => `- ${e.cam_name || e.cam_email}: ${e.task_link}\n  ${e.feedback ?? ''}`).join('\n') + `\n\nFull report: ${link}\n\nRegards,\n${s.report_email.sender_name || 'CS QA Team'}\nQuality Assurance | FULL Creative\n`;
+  return { subject: `Task Audit Scorecard - ${o.period.label} · ${pct2(A)} · ${afs.length} autofail${afs.length === 1 ? '' : 's'}`, html: h, text, teams };
+}
