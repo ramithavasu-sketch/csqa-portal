@@ -24,7 +24,7 @@ export function usePeriodSelection(includeDrafts = false): [PeriodSelection, (mo
   return [sel, set, periods];
 }
 
-export function PeriodPicker({ sel, onChange, periods }: { sel: PeriodSelection; onChange: (m: PeriodMode, a?: string) => void; periods: Period[] }) {
+export function PeriodPicker({ sel, onChange, periods, showVs = true }: { sel: PeriodSelection; onChange: (m: PeriodMode, a?: string) => void; periods: Period[]; /** show the "vs previous period" label */ showVs?: boolean }) {
   const sorted = [...periods].sort((a, b) => b.start_date.localeCompare(a.start_date));
   const [from, to] = sel.mode === 'custom' ? sel.anchor.split('..') : ['', ''];
   return (
@@ -63,7 +63,7 @@ export function PeriodPicker({ sel, onChange, periods }: { sel: PeriodSelection;
           <input id="period-to" type="date" className={inputBase + ' w-auto'} value={to} min={from} onChange={(e) => onChange('custom', `${from}..${e.target.value}`)} />
         </>
       )}
-      <span className="text-[12px] text-muted">vs {sel.previousLabel}</span>
+      {showVs && <span className="text-[12px] text-muted">vs {sel.previousLabel}</span>}
     </div>
   );
 }
