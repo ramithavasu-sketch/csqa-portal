@@ -23,7 +23,7 @@ export function ParametersPage() {
   const insights = useMemo(() => buildInsights(data.cur, data.prev, data.history, data.historyWeeks, ref.parameters, ref.taskTypeNames, ref.settings), [data, ref]);
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Parameter-Level Performance Analysis" subtitle="Every parameter uses its own maximum score from the QA rubric for that task type. Choose a CAM for a deep dive; compare any weeks at the bottom."
+      <PageHeader title="Parameter-Level Performance Analysis" subtitle="Results for the selected week only. Choose a CAM for a deep dive into that week; use Compare weeks at the bottom to compare weeks."
         actions={<>
           {me!.role !== 'user' && <><label htmlFor="pa-cam" className="sr-only">CAM</label><select id="pa-cam" className={inputBase + ' w-auto'} value={cam} onChange={(e) => setCam(e.target.value)}><option value="">{me!.role === 'admin' ? 'Whole team' : 'All CAMs'}</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></>}
           <PeriodPicker sel={sel} onChange={setSel} periods={periods} />
@@ -36,13 +36,13 @@ export function ParametersPage() {
       </div>
       <ErrorBox error={data.error} />
       {data.loading ? <Loading /> : (<>
-        <Card title="Parameters" subtitle={`${sel.label} vs ${sel.previousLabel}`}><ParameterAnalysis cur={data.cur} prev={data.prev} parameters={ref.parameters} taskTypeNames={ref.taskTypeNames} settings={ref.settings} /></Card>
-        {data.cur.length > 0 && <Card title="Strengths and improvement areas"><InsightsPanel insights={insights} /></Card>}
+        <Card title="Parameters" subtitle={`${sel.label} only${cam ? ` · ${camName}` : ''} · parameters with no tasks this period are hidden`}><ParameterAnalysis cur={data.cur} prev={data.prev} parameters={ref.parameters} taskTypeNames={ref.taskTypeNames} settings={ref.settings} compare={false} /></Card>
+        {data.cur.length > 0 && !cam && <Card title="Strengths and improvement areas" subtitle={sel.label}><InsightsPanel insights={insights} hide={['positive', 'declining']} /></Card>}
         {cam && <div id="pa-deep" className="scroll-mt-4" />}
-        {cam && <CamDeepDive camName={camName} cur={data.cur} prev={data.prev} sel={sel}
+        {cam && <CamDeepDive camName={camName} cur={data.cur} sel={sel}
           compareLabel={isQaRole(me!.role) ? 'All CAMs' : me!.role === 'admin' ? 'Your team' : null} />}
         <div id="pa-compare" className="scroll-mt-4" />
-        <WeekCompare camIds={cam ? [cam] : undefined} periods={isQaRole(me!.role) ? ref.periods : ref.publishedPeriods}
+        <WeekCompare camIds={cam ? [cam] : undefined} endId={sel.current[sel.current.length - 1]?.id} periods={isQaRole(me!.role) ? ref.periods : ref.publishedPeriods}
           scopeLabel={cam ? camName : me!.role === 'admin' ? 'Your whole team' : 'All CAMs'} />
         <Card title="Metric definitions">
           <dl className="grid gap-3 md:grid-cols-2">{Object.entries(METRIC_DEFINITIONS).map(([k, v]) => <div key={k}><dt className="text-[13px] font-semibold">{k}</dt><dd className="text-[12.5px] text-muted">{v}</dd></div>)}</dl>

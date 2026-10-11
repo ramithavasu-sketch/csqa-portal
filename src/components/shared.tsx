@@ -41,8 +41,10 @@ export function DownloadMenu({ build, label = 'Download Report', empty }: { buil
 }
 
 /** Parameter-level table + bar chart per task type, with drill-down to the related tasks. */
-export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settings }: {
+export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settings, compare = true }: {
   cur: Evaluation[]; prev: Evaluation[]; parameters: Parameter[]; taskTypeNames: Record<string, string>; settings: PortalSettings;
+  /** false = show the selected period only (no previous / variance columns) */
+  compare?: boolean;
 }) {
   const stats = useMemo(() => parameterStats(cur, parameters, taskTypeNames), [cur, parameters, taskTypeNames]);
   const prevStats = useMemo(() => new Map(parameterStats(prev, parameters, taskTypeNames).map((s) => [s.parameter.id, s])), [prev, parameters, taskTypeNames]);
@@ -50,7 +52,8 @@ export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settin
   const [type, setType] = useState<string>(types[0] ?? 'ER');
   const [drill, setDrill] = useState<ParamStat | null>(null);
   const activeType = types.includes(type) ? type : types[0];
-  const list = stats.filter((s) => s.parameter.task_type === activeType && (s.parameter.active || s.evaluated > 0)).sort((a, b) => a.parameter.sort_order - b.parameter.sort_order);
+  // only parameters that were actually checked in this period (nothing to show otherwise)
+  const list = stats.filter((s) => s.parameter.task_type === activeType && s.evaluated > 0).sort((a, b) => a.parameter.sort_order - b.parameter.sort_order);
   const typeTasks = cur.filter((e) => e.task_type === activeType);
   if (!types.length) return <EmptyState title="No QA evaluations are available for this reporting period." body="Parameter results appear once tasks are audited and the week is published." />;
   const sections = [...new Set(list.map((s) => s.parameter.section ?? ''))];
@@ -73,12 +76,12 @@ export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settin
         <Table>
           <thead><tr>
             <th className={th}>Parameter</th><th className={th + ' text-right'}>Max</th><th className={th + ' text-right'}>Earned</th>
-            <th className={th + ' text-right'}>% Achieved</th><th className={th + ' text-right'}>Previous</th><th className={th + ' text-right'}>Variance</th>
+            <th className={th + ' text-right'}>% Achieved</th>{compare && <><th className={th + ' text-right'}>Previous</th><th className={th + ' text-right'}>Variance</th></>}
             <th className={th + ' text-right'}>Evaluated</th><th className={th + ' text-right'}>Deductions</th><th className={th}>Related QA feedback</th><th className={th}></th>
           </tr></thead>
           <tbody>
             {sections.map((sec) => (
-              <FragmentRows key={sec} section={sec} colSpan={10}>
+              <FragmentRows key={sec} section={sec} colSpan={compare ? 10 : 8}>
                 {list.filter((s) => (s.parameter.section ?? '') === sec).map((s) => {
                   const p = prevStats.get(s.parameter.id);
                   return (
@@ -87,8 +90,8 @@ export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settin
                       <td className={td + ' text-right tnum'}>{s.parameter.max_score}</td>
                       <td className={td + ' text-right tnum'}>{s.evaluated ? `${s.earned}/${s.max}` : '—'}</td>
                       <td className={td + ' text-right'}>{s.evaluated ? <ScoreBadge score={s.pct} settings={settings} /> : <span className="text-faint">No Data</span>}</td>
-                      <td className={td + ' text-right tnum text-muted'}>{p?.evaluated ? fmtPct(p.pct) : 'No Data'}</td>
-                      <td className={td + ' text-right'}><Variance value={p?.evaluated && s.evaluated ? variance(s.pct, p.pct) : null} /></td>
+                      {compare && <><td className={td + ' text-right tnum text-muted'}>{p?.evaluated ? fmtPct(p.pct) : 'No Data'}</td>
+                      <td className={td + ' text-right'}><Variance value={p?.evaluated && s.evaluated ? variance(s.pct, p.pct) : null} /></td></>}
                       <td className={td + ' text-right tnum'}>{s.evaluated}</td>
                       <td className={td + ' text-right tnum'}>{s.deductions ? <span className="font-semibold text-bad">{s.deductions}</span> : 0}</td>
                       <td className={td + ' max-w-[260px] text-[12.5px] text-muted'}>{relatedFeedback(s)}</td>
@@ -135,7 +138,7 @@ function FragmentRows({ section, colSpan, children }: { section: string; colSpan
   return (<>{section && <tr><td colSpan={colSpan} className="bg-sunken/40 px-3 py-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-muted">{section}</td></tr>}{children}</>);
 }
 
-export function InsightsPanel({ insights }: { insights: Insights }) {
+export function InsightsPanel({ insights, hide = [] }: { insights: Insights; hide?: (keyof Insights)[] }) {
   const blocks: { key: keyof Insights; title: string; empty: string; tone: 'good' | 'warn' | 'bad' | 'info' | 'brand' }[] = [
     { key: 'focus', title: 'Recommended focus for next audit period', empty: 'Nothing flagged — keep doing what you’re doing.', tone: 'brand' },
     { key: 'improvements', title: 'Improvement areas', empty: 'No points lost in this period.', tone: 'warn' },
@@ -150,7 +153,7 @@ export function InsightsPanel({ insights }: { insights: Insights }) {
         <strong className="text-ink">Automated summary.</strong> Generated by fixed rules from your recorded scores (no AI, no invented findings). The official coaching is the QA feedback on each task.
       </p>
       <div className="grid gap-3 md:grid-cols-2">
-        {blocks.map((b) => {
+        {blocks.filter((b) => !hide.includes(b.key)).map((b) => {
           const items = insights[b.key].slice(0, b.key === 'focus' ? 3 : 6);
           return (
             <div key={b.key} className={clsx('rounded-lg border border-line p-3', b.key === 'focus' && 'md:col-span-2 border-brand/40 bg-brand-soft/30')}>

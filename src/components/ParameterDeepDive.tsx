@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { useAsync, useRef_ } from '../app/context';
@@ -11,81 +11,107 @@ import type { Evaluation, Period } from '../lib/types';
 const gapTone = (g: number | null) => (g === null ? '' : g <= -5 ? 'text-bad font-semibold' : g < 0 ? 'text-warn' : 'text-good');
 
 /**
- * One CAM in the selected period: every parameter against the comparison group
- * (all CAMs for QA, the Lead's team for a Lead), biggest gaps first, and every
- * task where points were lost.
+ * One CAM in the selected period only: where they lost points, what to focus on
+ * next (ranked by points lost), and how each parameter compares with the other
+ * CAMs in the same week (QA: all CAMs, Lead: their team). No previous-week figures.
  */
-export function CamDeepDive({ camName, cur, prev, sel, compareLabel }: {
-  camName: string; cur: Evaluation[]; prev: Evaluation[]; sel: PeriodSelection; compareLabel: string | null;
+export function CamDeepDive({ camName, cur, sel, compareLabel }: {
+  camName: string; cur: Evaluation[]; sel: PeriodSelection; compareLabel: string | null;
 }) {
   const ref = useRef_();
   const s = ref.settings;
   const ids = sel.current.map((p) => p.id);
   const group = useAsync(() => (compareLabel && ids.length ? repo.getEvaluations({ periodIds: ids }) : Promise.resolve([] as Evaluation[])), [compareLabel, ids.join(',')]);
-  const [showAll, setShowAll] = useState(false);
 
   const mine = useMemo(() => parameterStats(cur, ref.parameters, ref.taskTypeNames).filter((x) => x.evaluated > 0), [cur, ref]);
-  const before = useMemo(() => new Map(parameterStats(prev, ref.parameters, ref.taskTypeNames).map((x) => [x.parameter.id, x])), [prev, ref]);
   const others = useMemo(() => new Map(parameterStats(group.data ?? [], ref.parameters, ref.taskTypeNames).map((x) => [x.parameter.id, x])), [group.data, ref]);
-  const S = summarize(cur), P = summarize(prev), G = summarize(group.data ?? []);
-  const rows = mine.map((m) => {
-    const o = others.get(m.parameter.id);
-    const gap = compareLabel && o?.evaluated ? variance(m.pct, o.pct) : null;
-    return { m, o, gap, prevPct: before.get(m.parameter.id)?.evaluated ? before.get(m.parameter.id)!.pct : null };
-  }).sort((a, b) => (a.gap ?? (a.m.pct ?? 0) - 100) - (b.gap ?? (b.m.pct ?? 0) - 100));
-  const focus = rows.filter((r) => (r.gap !== null ? r.gap <= -5 : (r.m.pct ?? 100) < s.thresholds.amber) && r.m.deductions > 0).slice(0, 3);
-  const strengths = [...rows].reverse().filter((r) => (r.m.pct ?? 0) >= s.thresholds.green && r.m.deductions === 0).slice(0, 3);
-  const lost = cur.flatMap((e) => (e.autofail ? [] : e.scores.filter((x) => x.earned !== null && Number(x.earned) < Number(x.max_score)).map((x) => ({ e, x }))))
-    .sort((a, b) => (Number(b.x.max_score) - Number(b.x.earned)) - (Number(a.x.max_score) - Number(a.x.earned)));
-  const pointsLost = lost.reduce((a, l) => a + Number(l.x.max_score) - Number(l.x.earned), 0);
+  const S = summarize(cur), G = summarize(group.data ?? []);
+  const gapOf = (m: ParamStat) => { const o = others.get(m.parameter.id); return compareLabel && o?.evaluated ? variance(m.pct, o.pct) : null; };
+  const rows = mine.map((m) => ({ m, o: others.get(m.parameter.id), gap: gapOf(m) }))
+    .sort((x, y) => (y.m.pointsLost - x.m.pointsLost) || ((x.gap ?? 0) - (y.gap ?? 0)) || ((x.m.pct ?? 0) - (y.m.pct ?? 0)));
+  const focus = rows.filter((r) => r.m.deductions > 0).slice(0, 3);
+  const strengths = [...mine].filter((m) => m.deductions === 0).sort((x, y) => y.evaluated - x.evaluated).slice(0, 4);
+  const autofails = cur.filter((e) => e.autofail);
+  const lost = cur.flatMap((e) => (e.autofail ? [] : e.scores.filter((x) => x.earned !== null && Number(x.earned) < Number(x.max_score)).map((x) => ({ e, x }))));
+  const pointsLost = lost.reduce((t, l) => t + Number(l.x.max_score) - Number(l.x.earned), 0);
+  const byParam = rows.filter((r) => r.m.deductions > 0).map((r) => ({ r, items: lost.filter((l) => l.x.parameter_id === r.m.parameter.id) }));
   const types = Object.keys(ref.taskTypeNames).filter((t) => cur.some((e) => e.task_type === t));
+  const priority = (r: (typeof rows)[number]) => ((r.gap !== null && r.gap <= -5) || (r.m.pct ?? 100) < s.thresholds.amber ? 'High' : (r.m.pct ?? 100) < s.thresholds.green ? 'Medium' : 'Low');
+  const sample = (paramId: string) => lost.find((l) => l.x.parameter_id === paramId && (l.x.remarks || l.e.feedback));
 
-  if (!cur.length) return <Card title={`Deep dive · ${camName}`}><EmptyState title="No audits for this CAM in the selected period." /></Card>;
+  if (!cur.length) return <Card title={`Deep dive · ${camName}`} subtitle={sel.label}><EmptyState title="No audits for this CAM in the selected week." /></Card>;
   return (
-    <Card title={`Deep dive · ${camName}`} subtitle={<>{sel.label}{compareLabel ? <> · compared with <strong>{compareLabel}</strong> in the same period</> : null}</>}>
+    <Card title={`Deep dive · ${camName}`} subtitle={<>{sel.label} only{compareLabel ? <> · compared with <strong>{compareLabel}</strong> in the same week</> : null}</>}>
       <ErrorBox error={group.error} />
       <div className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <Kpi label="Tasks audited" value={S.tasks} sub={`${P.tasks} in ${sel.previousLabel}`} />
-          <Kpi label="Average QA score" value={fmtPct(S.avg)} sub={<>vs previous <Variance value={variance(S.avg, P.avg)} /></>} />
-          {compareLabel && <Kpi label={`${compareLabel} average`} value={group.loading ? '…' : fmtPct(G.avg)} sub={group.loading ? '' : <>gap <span className={gapTone(variance(S.avg, G.avg))}>{variance(S.avg, G.avg) === null ? '—' : `${variance(S.avg, G.avg)! > 0 ? '+' : ''}${variance(S.avg, G.avg)} pts`}</span></>} />}
-          <Kpi label="Autofails" value={S.autofails} tone={S.autofails ? 'bad' : 'good'} sub={S.autofailRate === null ? '—' : `${S.autofailRate}% of tasks`} />
-          <Kpi label="Points lost" value={pointsLost} sub={`on ${lost.length} parameter check(s)`} />
+          <Kpi label="Tasks audited" value={S.tasks} sub={types.map((t) => `${ref.taskTypeNames[t]} ${cur.filter((e) => e.task_type === t).length}`).join(' · ')} />
+          <Kpi label="Average QA score" value={fmtPct(S.avg)} sub={S.avg === null ? '' : S.avg >= s.qa_target.score ? `meets the ${s.qa_target.score}% target` : `${round1(s.qa_target.score - S.avg)} pts below the ${s.qa_target.score}% target`} />
+          {compareLabel && <Kpi label={`${compareLabel} average`} value={group.loading ? '…' : fmtPct(G.avg)} sub={group.loading ? '' : <>CAM is <span className={gapTone(variance(S.avg, G.avg))}>{gapText(variance(S.avg, G.avg))}</span></>} />}
+          <Kpi label="Autofails" value={S.autofails} tone={S.autofails ? 'bad' : 'good'} sub={S.autofails ? 'task score set to 0' : 'none this week'} />
+          <Kpi label="Issues missed" value={lost.length} sub={`${pointsLost} point(s) lost`} />
         </div>
 
-        {(focus.length > 0 || strengths.length > 0) && (
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-bad/30 bg-bad-soft/40 p-3">
-              <div className="mb-1 text-[13px] font-semibold text-bad">Focus areas</div>
-              {focus.length ? <ul className="flex flex-col gap-1 text-[13px]">{focus.map((r) => (
-                <li key={r.m.parameter.id}><strong>{r.m.parameter.name}</strong> <span className="text-muted">({r.m.taskTypeName})</span>: {fmtPct(r.m.pct)}
-                  {r.gap !== null && <> — <span className={gapTone(r.gap)}>{r.gap} pts</span> vs {compareLabel}</>}, {r.m.deductions} deduction(s)</li>))}</ul>
-                : <p className="text-[13px] text-muted">No parameter is clearly below {compareLabel ?? 'target'}.</p>}
-            </div>
-            <div className="rounded-lg border border-good/30 bg-good-soft/40 p-3">
-              <div className="mb-1 text-[13px] font-semibold text-good">Strengths</div>
-              {strengths.length ? <ul className="flex flex-col gap-1 text-[13px]">{strengths.map((r) => (
-                <li key={r.m.parameter.id}><strong>{r.m.parameter.name}</strong> <span className="text-muted">({r.m.taskTypeName})</span>: {fmtPct(r.m.pct)} on {r.m.evaluated} check(s), no deductions</li>))}</ul>
-                : <p className="text-[13px] text-muted">No parameter at {s.thresholds.green}%+ without deductions yet.</p>}
-            </div>
-          </div>
-        )}
+        <div className="rounded-lg border border-brand/40 bg-brand-soft/30 p-4">
+          <div className="mb-2 text-[14px] font-semibold">Where {camName.split(' ')[0]} should focus</div>
+          {autofails.length === 0 && focus.length === 0 ? <p className="text-[13px] text-good">No points lost this week — keep it up.</p> : (
+            <ol className="flex flex-col gap-3 text-[13px]">
+              {autofails.length > 0 && (
+                <li><span className="mr-2 rounded bg-bad px-1.5 py-0.5 text-[11px] font-semibold text-white">Top priority</span>
+                  <strong>Avoid autofails</strong> — {autofails.length} task(s) scored 0: {autofails.map((e, i) => <span key={e.id}>{i ? ', ' : ''}<Link to={`/evaluations/${e.id}`} className="font-mono text-brand hover:underline">{e.task_id.slice(0, 8)}</Link> ({e.task_type_name})</span>)}.</li>
+              )}
+              {focus.map((r, i) => {
+                const ex = sample(r.m.parameter.id);
+                const p = priority(r);
+                return (
+                  <li key={r.m.parameter.id}>
+                    <span className={clsx('mr-2 rounded px-1.5 py-0.5 text-[11px] font-semibold', p === 'High' ? 'bg-bad-soft text-bad' : p === 'Medium' ? 'bg-warn-soft text-warn' : 'bg-sunken text-muted')}>{i === 0 && !autofails.length ? 'Focus first' : `${p} priority`}</span>
+                    <strong>{r.m.parameter.name}</strong> <span className="text-muted">({r.m.taskTypeName})</span> — missed on {r.m.deductions} of {r.m.evaluated} task(s), {r.m.pointsLost} point(s) lost, {fmtPct(r.m.pct)} achieved
+                    {r.gap !== null && <> · {compareLabel} {fmtPct(r.o!.pct)} (<span className={gapTone(r.gap)}>{gapText(r.gap)}</span>)</>}.
+                    {ex && <div className="mt-1 border-l-2 border-line pl-2 text-[12.5px] text-muted">QA said: “{(ex.x.remarks || ex.e.feedback || '').slice(0, 220)}{(ex.x.remarks || ex.e.feedback || '').length > 220 ? '…' : ''}”</div>}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          {strengths.length > 0 && <p className="mt-3 text-[12.5px] text-good"><strong>Doing well:</strong> {strengths.map((m) => `${m.parameter.name} (${m.taskTypeName}, ${m.evaluated}/${m.evaluated})`).join(' · ')}</p>}
+        </div>
 
         <div>
-          <div className="mb-2 text-[13.5px] font-semibold">Every parameter, weakest first</div>
+          <div className="mb-2 text-[13.5px] font-semibold">Issues missed this week ({lost.length})</div>
+          {byParam.length === 0 ? <p className="text-[13px] text-muted">No deductions this week.</p> : (
+            <Table>
+              <thead><tr><th className={th}>Task</th><th className={th + ' text-right'}>Score</th><th className={th}>QA remarks / feedback</th></tr></thead>
+              <tbody>{byParam.map(({ r, items }) => (
+                <Fragment key={r.m.parameter.id}>
+                  <tr><td colSpan={3} className="bg-sunken px-3 py-1.5 text-[12.5px] font-semibold">{r.m.parameter.name} <span className="font-normal text-muted">· {r.m.taskTypeName} · {items.length} missed</span></td></tr>
+                  {items.map(({ e, x }) => (
+                    <tr key={x.id}>
+                      <td className={td + ' whitespace-nowrap'}><Link to={`/evaluations/${e.id}`} className="font-mono text-[12px] text-brand hover:underline">{e.task_id.slice(0, 8)}</Link>
+                        <div className="text-[11.5px] text-muted">{e.task_type_name}</div></td>
+                      <td className={td + ' text-right tnum text-bad'}>{x.earned}/{x.max_score}</td>
+                      <td className={td + ' max-w-[560px] whitespace-pre-wrap text-[12.5px] text-muted'}>{x.remarks || e.feedback || '—'}</td>
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}</tbody>
+            </Table>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-2 text-[13.5px] font-semibold">Every parameter checked this week{compareLabel ? ` · vs ${compareLabel}` : ''}</div>
           <Table>
             <thead><tr><th className={th}>Task type</th><th className={th}>Parameter</th><th className={th + ' text-right'}>CAM</th>
-              {compareLabel && <><th className={th + ' text-right'}>{compareLabel}</th><th className={th + ' text-right'}>Gap</th></>}
-              <th className={th + ' text-right'}>Previous</th><th className={th + ' text-right'}>Change</th><th className={th + ' text-right'}>Checks</th><th className={th + ' text-right'}>Deductions</th><th className={th + ' text-right'}>Points lost</th></tr></thead>
-            <tbody>{rows.map(({ m, o, gap, prevPct }) => (
+              {compareLabel && <><th className={th + ' text-right'}>{compareLabel}</th><th className={th + ' text-right'}>Difference</th></>}
+              <th className={th + ' text-right'}>Tasks checked</th><th className={th + ' text-right'}>Missed</th><th className={th + ' text-right'}>Points lost</th></tr></thead>
+            <tbody>{rows.map(({ m, o, gap }) => (
               <tr key={m.parameter.id}>
                 <td className={td + ' text-[12.5px] text-muted'}>{m.taskTypeName}</td>
                 <td className={td + ' font-medium'}>{m.parameter.name}</td>
                 <td className={td + ' text-right'}><ScoreBadge score={m.pct} settings={s} /></td>
                 {compareLabel && <><td className={td + ' text-right tnum text-muted'}>{group.loading ? '…' : o?.evaluated ? fmtPct(o.pct) : '—'}</td>
                   <td className={td + ' text-right tnum ' + gapTone(gap)}>{gap === null ? '—' : `${gap > 0 ? '+' : ''}${gap}`}</td></>}
-                <td className={td + ' text-right tnum text-muted'}>{prevPct === null ? '—' : fmtPct(prevPct)}</td>
-                <td className={td + ' text-right'}><Variance value={variance(m.pct, prevPct)} /></td>
                 <td className={td + ' text-right tnum'}>{m.evaluated}</td>
                 <td className={td + ' text-right tnum'}>{m.deductions ? <span className="font-semibold text-bad">{m.deductions}</span> : 0}</td>
                 <td className={td + ' text-right tnum'}>{m.pointsLost || 0}</td>
@@ -93,50 +119,22 @@ export function CamDeepDive({ camName, cur, prev, sel, compareLabel }: {
             ))}</tbody>
           </Table>
         </div>
-
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
-          <div>
-            <div className="mb-2 text-[13.5px] font-semibold">By task type</div>
-            <Table>
-              <thead><tr><th className={th}>Task type</th><th className={th + ' text-right'}>Tasks</th><th className={th + ' text-right'}>CAM avg</th>{compareLabel && <th className={th + ' text-right'}>{compareLabel}</th>}<th className={th + ' text-right'}>Autofails</th></tr></thead>
-              <tbody>{types.map((t) => {
-                const x = summarize(cur.filter((e) => e.task_type === t));
-                const g = summarize((group.data ?? []).filter((e) => e.task_type === t));
-                return <tr key={t}><td className={td}>{ref.taskTypeNames[t]}</td><td className={td + ' text-right tnum'}>{x.tasks}</td><td className={td + ' text-right'}><ScoreBadge score={x.avg} settings={s} /></td>
-                  {compareLabel && <td className={td + ' text-right tnum text-muted'}>{group.loading ? '…' : fmtPct(g.avg)}</td>}<td className={td + ' text-right tnum'}>{x.autofails}</td></tr>;
-              })}</tbody>
-            </Table>
-          </div>
-          <div>
-            <div className="mb-2 text-[13.5px] font-semibold">Where points were lost ({lost.length})</div>
-            {lost.length === 0 ? <p className="text-[13px] text-muted">No deductions in this period.</p> : (<>
-              <Table>
-                <thead><tr><th className={th}>Task</th><th className={th}>Parameter</th><th className={th + ' text-right'}>Score</th><th className={th}>QA remarks / feedback</th></tr></thead>
-                <tbody>{(showAll ? lost : lost.slice(0, 10)).map(({ e, x }) => (
-                  <tr key={x.id}>
-                    <td className={td + ' whitespace-nowrap'}><Link to={`/evaluations/${e.id}`} className="font-mono text-[12px] text-brand hover:underline">{e.task_id.slice(0, 8)}</Link>
-                      <div className="text-[11.5px] text-muted">{e.period_short_label} · {e.task_type_name}</div></td>
-                    <td className={td + ' text-[13px]'}>{x.parameter_name}</td>
-                    <td className={td + ' text-right tnum text-bad'}>{x.earned}/{x.max_score}</td>
-                    <td className={td + ' max-w-[420px] whitespace-pre-wrap text-[12.5px] text-muted'}>{x.remarks || e.feedback || '—'}</td>
-                  </tr>
-                ))}</tbody>
-              </Table>
-              {lost.length > 10 && <button className="mt-2 text-[12.5px] font-medium text-brand hover:underline" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show fewer' : `Show all ${lost.length}`}</button>}
-            </>)}
-          </div>
-        </div>
       </div>
     </Card>
   );
 }
 
+const round1 = (n: number) => Math.round(n * 10) / 10;
+const gapText = (g: number | null) => (g === null ? '—' : g === 0 ? 'level' : `${Math.abs(g)} pts ${g > 0 ? 'above' : 'below'}`);
+
 /** Pick any weeks and see every parameter side by side, with the change from the first to the last week. */
-export function WeekCompare({ camIds, scopeLabel, periods }: { camIds?: string[]; scopeLabel: string; periods: Period[] }) {
+export function WeekCompare({ camIds, scopeLabel, periods, endId }: { camIds?: string[]; scopeLabel: string; periods: Period[]; /** start with this week and the 3 before it */ endId?: string }) {
   const ref = useRef_();
   const s = ref.settings;
   const choices = useMemo(() => [...periods].sort((a, b) => b.start_date.localeCompare(a.start_date)).slice(0, 26), [periods]);
-  const [picked, setPicked] = useState<string[]>(() => choices.slice(0, 4).map((p) => p.id));
+  const around = (id?: string) => { const i = Math.max(0, choices.findIndex((p) => p.id === id)); return choices.slice(i, i + 4).map((p) => p.id); };
+  const [picked, setPicked] = useState<string[]>(() => around(endId));
+  useEffect(() => { setPicked(around(endId)); }, [endId]);   // follow the week chosen at the top of the page
   const weeks = choices.filter((p) => picked.includes(p.id)).sort((a, b) => a.start_date.localeCompare(b.start_date));
   const data = useAsync(() => (weeks.length ? repo.getEvaluations({ periodIds: weeks.map((w) => w.id), camIds }) : Promise.resolve([] as Evaluation[])), [weeks.map((w) => w.id).join(','), camIds?.join(',') ?? '']);
   const all = data.data ?? [];
@@ -152,7 +150,7 @@ export function WeekCompare({ camIds, scopeLabel, periods }: { camIds?: string[]
   const pctOf = (st: ParamStat | undefined) => (st?.evaluated ? st.pct : null);
 
   return (
-    <Card title="Compare weeks" subtitle={<>{scopeLabel} · pick 2–8 weeks to see every parameter side by side</>}>
+    <Card title="Compare weeks" subtitle={<>{scopeLabel} · starts with the selected week and the 3 before it — click weeks to add or remove (2–8)</>}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-1.5">{choices.map((p) => (
           <button key={p.id} onClick={() => toggle(p.id)} aria-pressed={picked.includes(p.id)}
