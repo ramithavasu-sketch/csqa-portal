@@ -18,6 +18,7 @@ export function ParametersPage() {
   const [cam, setCam] = useState(me!.role === 'user' ? me!.id : '');
   const data = useScopeData(sel, cam ? [cam] : undefined);
   const cams = ref.employees.filter((e) => isReportee(e) && e.id !== me!.id && (isQaRole(me!.role) || (me!.role === 'admin' && ref.teams.some((t) => t.id === e.team_id && t.lead_id === me!.id))));
+  const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const camName = cam === me!.id ? me!.full_name : ref.employees.find((e) => e.id === cam)?.full_name ?? '';
   const insights = useMemo(() => buildInsights(data.cur, data.prev, data.history, data.historyWeeks, ref.parameters, ref.taskTypeNames, ref.settings), [data, ref]);
   return (
@@ -27,12 +28,20 @@ export function ParametersPage() {
           {me!.role !== 'user' && <><label htmlFor="pa-cam" className="sr-only">CAM</label><select id="pa-cam" className={inputBase + ' w-auto'} value={cam} onChange={(e) => setCam(e.target.value)}><option value="">{me!.role === 'admin' ? 'Whole team' : 'All CAMs'}</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></>}
           <PeriodPicker sel={sel} onChange={setSel} periods={periods} />
         </>} />
+      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <span className="text-muted">Jump to:</span>
+        <button className="rounded-full border border-brand bg-brand-soft px-3 py-1 font-medium text-brand" onClick={() => (cam ? jump('pa-deep') : document.getElementById('pa-cam')?.focus())}>
+          {cam ? `Deep dive · ${camName}` : 'CAM deep dive (choose a CAM first)'}</button>
+        <button className="rounded-full border border-brand bg-brand-soft px-3 py-1 font-medium text-brand" onClick={() => jump('pa-compare')}>Compare weeks</button>
+      </div>
       <ErrorBox error={data.error} />
       {data.loading ? <Loading /> : (<>
         <Card title="Parameters" subtitle={`${sel.label} vs ${sel.previousLabel}`}><ParameterAnalysis cur={data.cur} prev={data.prev} parameters={ref.parameters} taskTypeNames={ref.taskTypeNames} settings={ref.settings} /></Card>
         {data.cur.length > 0 && <Card title="Strengths and improvement areas"><InsightsPanel insights={insights} /></Card>}
+        {cam && <div id="pa-deep" className="scroll-mt-4" />}
         {cam && <CamDeepDive camName={camName} cur={data.cur} prev={data.prev} sel={sel}
           compareLabel={isQaRole(me!.role) ? 'All CAMs' : me!.role === 'admin' ? 'Your team' : null} />}
+        <div id="pa-compare" className="scroll-mt-4" />
         <WeekCompare camIds={cam ? [cam] : undefined} periods={isQaRole(me!.role) ? ref.periods : ref.publishedPeriods}
           scopeLabel={cam ? camName : me!.role === 'admin' ? 'Your whole team' : 'All CAMs'} />
         <Card title="Metric definitions">
