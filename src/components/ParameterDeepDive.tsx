@@ -134,6 +134,7 @@ export function WeekCompare({ camIds, scopeLabel, periods, endId }: { camIds?: s
         ))}</div>
         <ErrorBox error={data.error} />
         {weeks.length < 2 ? <p className="text-[13px] text-muted">Choose at least two weeks.</p> : data.loading ? <Loading /> : !all.length ? <EmptyState title="No audits in the chosen weeks." /> : (<>
+          <CompareSummary weeks={weeks} all={all} perWeek={perWeek} />
           <TrendChart points={weeklyTrend(all, weeks)} settings={s} height={200} />
           <div className="flex flex-wrap gap-2">{types.map((t) => (
             <button key={t} onClick={() => setType(t)} className={clsx('rounded-full border px-3 py-1 text-[13px] font-medium', t === activeType ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted hover:text-ink')}>
@@ -169,5 +170,62 @@ export function WeekCompare({ camIds, scopeLabel, periods, endId }: { camIds?: s
         </>)}
       </div>
     </Card>
+  );
+}
+
+/** Rule-based summary across the chosen weeks: trend, improved / declined parameters, recurring misses, focus. */
+function CompareSummary({ weeks, all, perWeek }: { weeks: Period[]; all: Evaluation[]; perWeek: Map<string, ParamStat>[] }) {
+  const ref = useRef_();
+  const s = ref.settings;
+  const sums = weeks.map((w) => ({ w, x: summarize(all.filter((e) => e.period_id === w.id)) }));
+  const withData = sums.filter((r) => r.x.tasks > 0);
+  if (withData.length < 2) return null;
+  const first = withData[0], last = withData[withData.length - 1];
+  const change = variance(last.x.avg, first.x.avg);
+  const best = [...withData].sort((a, b) => (b.x.avg ?? 0) - (a.x.avg ?? 0))[0];
+  const worst = [...withData].sort((a, b) => (a.x.avg ?? 0) - (b.x.avg ?? 0))[0];
+  const totalAf = withData.reduce((t, r) => t + r.x.autofails, 0);
+  const afWeeks = withData.filter((r) => r.x.autofails > 0).map((r) => `${r.w.short_label} (${r.x.autofails})`);
+  const metTarget = withData.filter((r) => (r.x.avg ?? 0) >= s.qa_target.score).length;
+
+  // per parameter across the weeks
+  const params = ref.parameters.map((p) => {
+    const st = perWeek.map((m) => m.get(p.id)).filter((x): x is ParamStat => !!x && x.evaluated > 0);
+    if (!st.length) return null;
+    const missedWeeks = perWeek.filter((m) => (m.get(p.id)?.deductions ?? 0) > 0).length;
+    const pts = st.reduce((t, x) => t + x.pointsLost, 0);
+    const misses = st.reduce((t, x) => t + x.deductions, 0);
+    const checks = st.reduce((t, x) => t + x.evaluated, 0);
+    const delta = st.length >= 2 ? variance(st[st.length - 1].pct, st[0].pct) : null;
+    return { p, name: p.name, type: ref.taskTypeNames[p.task_type] ?? p.task_type, missedWeeks, pts, misses, checks, delta, weeksSeen: st.length };
+  }).filter((x): x is NonNullable<typeof x> => !!x);
+  const improved = params.filter((x) => (x.delta ?? 0) >= 1).sort((a, b) => b.delta! - a.delta!).slice(0, 3);
+  const declined = params.filter((x) => (x.delta ?? 0) <= -1).sort((a, b) => a.delta! - b.delta!).slice(0, 3);
+  const recurring = params.filter((x) => x.missedWeeks >= 2).sort((a, b) => b.missedWeeks - a.missedWeeks || b.pts - a.pts).slice(0, 4);
+  const focus = [...params].filter((x) => x.misses > 0).sort((a, b) => b.pts - a.pts || b.missedWeeks - a.missedWeeks).slice(0, 3);
+  const n = withData.length;
+
+  return (
+    <div className="rounded-lg border border-brand/40 bg-brand-soft/30 p-4 text-[13px]">
+      <div className="mb-2 text-[14px] font-semibold">Summary · {first.w.short_label} to {last.w.short_label} ({n} weeks)</div>
+      <ul className="flex flex-col gap-1.5">
+        <li><strong>Overall:</strong> average went from {fmtPct(first.x.avg)} to {fmtPct(last.x.avg)}
+          {change !== null && <> (<span className={change > 0 ? 'text-good' : change < 0 ? 'text-bad' : ''}>{change > 0 ? '+' : ''}{change} pts</span>)</>}.
+          Best week {best.w.short_label} ({fmtPct(best.x.avg)}), lowest {worst.w.short_label} ({fmtPct(worst.x.avg)}). Met the {s.qa_target.score}% target in {metTarget} of {n} weeks.</li>
+        <li><strong>Autofails:</strong> {totalAf ? <span className="text-bad">{totalAf} in total — {afWeeks.join(', ')}</span> : <span className="text-good">none in these weeks</span>}.</li>
+        {improved.length > 0 && <li><strong className="text-good">Improved:</strong> {improved.map((x) => `${x.name} (${x.type}) +${x.delta} pts`).join(' · ')}</li>}
+        {declined.length > 0 && <li><strong className="text-bad">Declined:</strong> {declined.map((x) => `${x.name} (${x.type}) ${x.delta} pts`).join(' · ')}</li>}
+        {recurring.length > 0 && <li><strong className="text-warn">Missed again and again:</strong> {recurring.map((x) => `${x.name} (${x.type}) in ${x.missedWeeks} of ${n} weeks`).join(' · ')}</li>}
+      </ul>
+      <div className="mt-3 border-t border-line pt-2">
+        <strong>Where to focus:</strong>{' '}
+        {focus.length === 0 && !totalAf ? <span className="text-good">no points lost in these weeks — keep it up.</span> : (
+          <ol className="mt-1 flex list-decimal flex-col gap-1 pl-5">
+            {totalAf > 0 && <li><strong>Avoid autofails</strong> — {totalAf} task(s) scored 0 across these weeks.</li>}
+            {focus.map((x) => <li key={x.p.id}><strong>{x.name}</strong> <span className="text-muted">({x.type})</span> — {x.pts} point(s) lost, missed {x.misses} time(s) in {x.checks} check(s){x.missedWeeks >= 2 ? `, in ${x.missedWeeks} of ${n} weeks` : ''}{x.delta !== null && x.delta < 0 ? `, getting worse (${x.delta} pts)` : x.delta !== null && x.delta > 0 ? `, improving (+${x.delta} pts)` : ''}.</li>)}
+          </ol>
+        )}
+      </div>
+    </div>
   );
 }
