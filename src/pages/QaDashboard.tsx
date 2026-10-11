@@ -4,12 +4,12 @@ import { useApp, useRef_ } from '../app/context';
 import { useScopeData } from '../app/useScope';
 import { PageHeader } from '../components/Layout';
 import { PeriodPicker, usePeriodSelection } from '../components/PeriodPicker';
-import { Card, EmptyState, ErrorBox, Kpi, Loading, ScoreBadge, StatusBadge, Tabs, Table, td, th, Variance, inputCls, inputBase } from '../components/ui';
+import { Card, EmptyState, ErrorBox, Kpi, Loading, ScoreBadge, StatusBadge, Tabs, Table, td, th, inputCls, inputBase } from '../components/ui';
 import { TrendSwitch } from '../components/charts';
 import CamDashboard from './CamDashboard';
 import { CamTable } from '../components/CamTable';
 import { DownloadMenu, ParameterAnalysis } from '../components/shared';
-import { isReportee, APPEAL_STATUS_LABEL, band, camRows, fmtDate, fmtPct, isOpenAppeal, isPendingAppeal, isResolvedAppeal, summarize, variance } from '../lib/metrics';
+import { isReportee, APPEAL_STATUS_LABEL, band, camRows, fmtDate, fmtPct, isOpenAppeal, isPendingAppeal, isResolvedAppeal, summarize } from '../lib/metrics';
 import { buildReport } from '../lib/report';
 import type { AppealStatus } from '../lib/types';
 
@@ -47,7 +47,7 @@ export default function QaDashboard() {
   const cur = useMemo(() => evFilter(data.cur), [data.cur, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
   const prev = useMemo(() => evFilter(data.prev), [data.prev, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
   const history = useMemo(() => evFilter(data.history), [data.history, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
-  const S = summarize(cur); const P = summarize(prev);
+  const S = summarize(cur);
   // Appeals in scope: same CAMs, and (like the table) only on tasks of the selected period.
   const allAppeals = data.appeals.filter((a) => camSet.has(a.cam_id) && (!taskType || a.task_type === taskType));
   const curIds = new Set(cur.map((e) => e.id));
@@ -94,8 +94,8 @@ export default function QaDashboard() {
         {cur.length === 0 && <EmptyState title="No QA evaluations are available for this reporting period." body="Change the period or clear some filters." />}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <Kpi label="CAMs Evaluated" term="CAMs Evaluated" value={active.length} sub={`of ${cams.filter((c) => c.status === 'active').length} active CAMs`} />
-          <Kpi label="Tasks Audited" term="Tasks Audited" value={S.tasks} sub={`${P.tasks} previous`} />
-          <Kpi label="Overall QA Score" term="Average QA Score" value={fmtPct(S.avg)} tone={band(S.avg, s) === 'green' ? 'good' : band(S.avg, s) === 'amber' ? 'warn' : band(S.avg, s) === 'red' ? 'bad' : 'neutral'} sub={<Variance value={variance(S.avg, P.avg)} />} />
+          <Kpi label="Tasks Audited" term="Tasks Audited" value={S.tasks} sub={sel.label} />
+          <Kpi label="Overall QA Score" term="Average QA Score" value={fmtPct(S.avg)} tone={band(S.avg, s) === 'green' ? 'good' : band(S.avg, s) === 'amber' ? 'warn' : band(S.avg, s) === 'red' ? 'bad' : 'neutral'} sub={`target ${s.qa_target.score}%`} />
           <Kpi label="Total Autofails" term="Autofails" value={S.autofails} tone={S.autofails ? 'bad' : 'neutral'} sub={S.autofailRate === null ? '—' : `${S.autofailRate.toFixed(2)}% of tasks`} />
           <Kpi label="Appeals Received" term="Appeals" value={appeals.filter((a) => a.status !== 'draft').length} sub={`on this period’s tasks · ${appeals.filter(isPendingAppeal).length} pending`} />
           <Kpi label="Awaiting Lead Review" term="Appeals" value={appeals.filter((a) => a.status === 'pending_lead_review').length} sub={`this period · ${allAppeals.filter((a) => a.status === 'pending_lead_review').length} across all weeks (${allAppeals.filter((a) => a.status === 'pending_lead_review' && a.overdue).length} overdue)`} />
@@ -136,13 +136,12 @@ export default function QaDashboard() {
           <Card title="Team Lead comparison" pad={false}>
             <Table>
               <thead><tr><th className={th}>Team Lead</th><th className={th}>Team(s)</th><th className={th + ' text-right'}>CAMs</th><th className={th + ' text-right'}>Tasks</th>
-                <th className={th + ' text-right'}>Average</th><th className={th + ' text-right'}>Previous</th><th className={th + ' text-right'}>Variance</th><th className={th + ' text-right'}>Autofails</th>
+                <th className={th + ' text-right'}>Average</th><th className={th + ' text-right'}>Autofails</th>
                 <th className={th + ' text-right'}>Meeting target</th><th className={th + ' text-right'}>Open appeals</th></tr></thead>
               <tbody>{leadRows.map((r) => (
                 <tr key={r.lead.id} className="cursor-pointer hover:bg-sunken/60" onClick={() => { setLeadId(r.lead.id); setView('org'); }}>
                   <td className={td + ' font-medium'}>{r.lead.full_name}</td><td className={td + ' text-muted'}>{r.teams || '—'}</td><td className={td + ' text-right tnum'}>{r.cams}</td>
                   <td className={td + ' text-right tnum'}>{r.a.tasks}</td><td className={td + ' text-right'}><ScoreBadge score={r.a.avg} settings={s} /></td>
-                  <td className={td + ' text-right'}>{r.b.avg === null ? <span className="text-muted">No Data</span> : <span className="tnum text-muted">{fmtPct(r.b.avg)}</span>}</td><td className={td + ' text-right'}><Variance value={variance(r.a.avg, r.b.avg)} /></td>
                   <td className={td + ' text-right tnum'}>{r.a.autofails}</td><td className={td + ' text-right tnum'}>{r.meets}</td><td className={td + ' text-right tnum'}>{r.open}</td>
                 </tr>))}</tbody>
             </Table>

@@ -22,7 +22,9 @@ export function CamDeepDive({ camName, cur, sel }: { camName: string; cur: Evalu
   const focus = rows.filter((m) => m.deductions > 0).slice(0, 3);
   const strengths = [...mine].filter((m) => m.deductions === 0).sort((x, y) => y.evaluated - x.evaluated).slice(0, 4);
   const autofails = cur.filter((e) => e.autofail);
-  const lost = cur.flatMap((e) => (e.autofail ? [] : e.scores.filter((x) => x.earned !== null && Number(x.earned) < Number(x.max_score)).map((x) => ({ e, x }))));
+  // autofailed tasks count as 0 on every parameter (same as the parameter %)
+  const lost = cur.flatMap((e) => e.scores.filter((x) => x.earned !== null && (e.autofail || Number(x.earned) < Number(x.max_score)))
+    .map((x) => ({ e, x: e.autofail ? { ...x, earned: 0 } : x })));
   const pointsLost = lost.reduce((t, l) => t + Number(l.x.max_score) - Number(l.x.earned), 0);
   const types = Object.keys(ref.taskTypeNames).filter((t) => cur.some((e) => e.task_type === t));
   const priority = (m: ParamStat) => ((m.pct ?? 100) < s.thresholds.amber ? 'High' : (m.pct ?? 100) < s.thresholds.green ? 'Medium' : 'Low');
@@ -45,7 +47,7 @@ export function CamDeepDive({ camName, cur, sel }: { camName: string; cur: Evalu
             <ol className="flex flex-col gap-3 text-[13px]">
               {autofails.length > 0 && (
                 <li><span className="mr-2 rounded bg-bad px-1.5 py-0.5 text-[11px] font-semibold text-white">Top priority</span>
-                  <strong>Avoid autofails</strong> — {autofails.length} task(s) scored 0: {autofails.map((e, i) => <span key={e.id}>{i ? ', ' : ''}<Link to={`/evaluations/${e.id}`} className="font-mono text-brand hover:underline">{e.task_id.slice(0, 8)}</Link> ({e.task_type_name})</span>)}.</li>
+                  <strong>Autofails</strong> — {autofails.length} task(s) scored 0 (counted as 0 on every parameter below): {autofails.map((e, i) => <span key={e.id}>{i ? ', ' : ''}<Link to={`/evaluations/${e.id}`} className="font-mono text-brand hover:underline">{e.task_id.slice(0, 8)}</Link> ({e.task_type_name})</span>)}.</li>
               )}
               {focus.map((m, i) => {
                 const p = priority(m); const said = remark(m.parameter.id);
@@ -87,7 +89,7 @@ export function CamDeepDive({ camName, cur, sel }: { camName: string; cur: Evalu
                       <td className={td + ' text-right tnum text-bad'}>{x.earned}/{x.max_score}</td>
                       <td className={td} /><td className={td} /><td className={td} />
                       <td className={td + ' text-right tnum text-bad'}>{Number(x.max_score) - Number(x.earned)}</td>
-                      <td className={td + ' max-w-[560px] whitespace-pre-wrap text-[12.5px] text-muted'}>{x.remarks || e.feedback || '—'}</td>
+                      <td className={td + ' max-w-[560px] whitespace-pre-wrap text-[12.5px] text-muted'}>{e.autofail && <span className="mr-1 font-semibold text-bad">Autofail ·</span>}{x.remarks || e.feedback || '—'}</td>
                     </tr>
                   ))}
                 </Fragment>
@@ -166,7 +168,7 @@ export function WeekCompare({ camIds, scopeLabel, periods, endId }: { camIds?: s
               ))}
             </tbody>
           </Table>
-          <p className="text-[12px] text-muted">Parameter % excludes autofailed tasks, the same as the table above. "ded." = number of checks with points deducted that week.</p>
+          <p className="text-[12px] text-muted">An autofailed task counts as 0 on every parameter, the same as the table above. "ded." = number of checks with points deducted that week.</p>
         </>)}
       </div>
     </Card>
@@ -221,7 +223,7 @@ function CompareSummary({ weeks, all, perWeek }: { weeks: Period[]; all: Evaluat
         <strong>Where to focus:</strong>{' '}
         {focus.length === 0 && !totalAf ? <span className="text-good">no points lost in these weeks — keep it up.</span> : (
           <ol className="mt-1 flex list-decimal flex-col gap-1 pl-5">
-            {totalAf > 0 && <li><strong>Avoid autofails</strong> — {totalAf} task(s) scored 0 across these weeks.</li>}
+            {totalAf > 0 && <li><strong>Autofails</strong> — {totalAf} task(s) scored 0 across these weeks (counted as 0 on every parameter).</li>}
             {focus.map((x) => <li key={x.p.id}><strong>{x.name}</strong> <span className="text-muted">({x.type})</span> — {x.pts} point(s) lost, missed {x.misses} time(s) in {x.checks} check(s){x.missedWeeks >= 2 ? `, in ${x.missedWeeks} of ${n} weeks` : ''}{x.delta !== null && x.delta < 0 ? `, getting worse (${x.delta} pts)` : x.delta !== null && x.delta > 0 ? `, improving (+${x.delta} pts)` : ''}.</li>)}
           </ol>
         )}

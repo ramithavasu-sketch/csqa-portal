@@ -4,11 +4,11 @@ import { useApp, useRef_ } from '../app/context';
 import { useScopeData } from '../app/useScope';
 import { PageHeader } from '../components/Layout';
 import { PeriodPicker, usePeriodSelection } from '../components/PeriodPicker';
-import { Card, EmptyState, ErrorBox, Kpi, Loading, ScoreBadge, StatusBadge, Table, td, th, Variance } from '../components/ui';
+import { Card, EmptyState, ErrorBox, Kpi, Loading, ScoreBadge, StatusBadge, Table, td, th } from '../components/ui';
 import { TrendSwitch } from '../components/charts';
 import { CamTable } from '../components/CamTable';
 import { DownloadMenu, ParameterAnalysis } from '../components/shared';
-import { isReportee, band, camRows, fmtDate, fmtPct, summarize, variance } from '../lib/metrics';
+import { isReportee, band, camRows, fmtDate, fmtPct, summarize } from '../lib/metrics';
 import { buildReport } from '../lib/report';
 
 export default function LeadDashboard() {
@@ -20,7 +20,6 @@ export default function LeadDashboard() {
   const cams = ref.employees.filter((e) => e.id !== me!.id && isReportee(e) && e.team_id && myTeams.some((t) => t.id === e.team_id));
   const data = useScopeData(sel, undefined, 26);
   const cur = summarize(data.cur);
-  const prev = summarize(data.prev);
   const rows = useMemo(() => camRows(cams, ref.teams, ref.employees, data.cur, data.prev, data.history, data.historyWeeks, data.appeals, s),
     [cams, ref.teams, ref.employees, data, s]);
   const queue = data.appeals.filter((a) => a.status === 'pending_lead_review');
@@ -41,8 +40,7 @@ export default function LeadDashboard() {
       {data.loading ? <Loading /> : (<>
         {data.cur.length === 0 && <EmptyState title="No QA evaluations are available for this reporting period." body="Choose another week or period above." />}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <Kpi label="Team QA Score" term="Average QA Score" value={fmtPct(cur.avg)} tone={band(cur.avg, s) === 'green' ? 'good' : band(cur.avg, s) === 'amber' ? 'warn' : band(cur.avg, s) === 'red' ? 'bad' : 'neutral'} sub={`Previous ${fmtPct(prev.avg)}`} />
-          <Kpi label="Score Variance" term="Score Variance" value={<Variance value={variance(cur.avg, prev.avg)} />} sub={`vs ${sel.previousLabel}`} />
+          <Kpi label="Team QA Score" term="Average QA Score" value={fmtPct(cur.avg)} tone={band(cur.avg, s) === 'green' ? 'good' : band(cur.avg, s) === 'amber' ? 'warn' : band(cur.avg, s) === 'red' ? 'bad' : 'neutral'} sub={`target ${s.qa_target.score}%`} />
           <Kpi label="Tasks Audited" term="Tasks Audited" value={cur.tasks} sub={`${active.length} of ${cams.length} CAMs audited`} />
           <Kpi label="Autofails" term="Autofails" value={cur.autofails} tone={cur.autofails ? 'bad' : 'neutral'} sub={cur.autofailRate === null ? '—' : `${cur.autofailRate.toFixed(2)}% of tasks`} />
           <Kpi label="CAMs Meeting Target" term="Meeting Target" value={`${active.filter((r) => r.meetsTarget).length}/${active.length}`} sub={`Target ${s.qa_target.score}%`} />
@@ -80,13 +78,13 @@ export default function LeadDashboard() {
 
         <Card title="Task type mix" pad={false}>
           <Table>
-            <thead><tr><th className={th}>Task type</th><th className={th + ' text-right'}>Tasks</th><th className={th + ' text-right'}>Average</th><th className={th + ' text-right'}>Previous</th><th className={th + ' text-right'}>Autofails</th></tr></thead>
+            <thead><tr><th className={th}>Task type</th><th className={th + ' text-right'}>Tasks</th><th className={th + ' text-right'}>Average</th><th className={th + ' text-right'}>Autofails</th></tr></thead>
             <tbody>{ref.taskTypes.map((t) => {
-              const a = summarize(data.cur.filter((e) => e.task_type === t.code)); const b = summarize(data.prev.filter((e) => e.task_type === t.code));
-              if (!a.tasks && !b.tasks) return null;
-              return <tr key={t.code}><td className={td}>{t.name}</td><td className={td + ' text-right tnum'}>{a.tasks}</td><td className={td + ' text-right'}><ScoreBadge score={a.avg} settings={s} /></td><td className={td + ' text-right tnum text-muted'}>{fmtPct(b.avg)}</td><td className={td + ' text-right tnum'}>{a.autofails}</td></tr>;
+              const a = summarize(data.cur.filter((e) => e.task_type === t.code));
+              if (!a.tasks) return null;
+              return <tr key={t.code}><td className={td}>{t.name}</td><td className={td + ' text-right tnum'}>{a.tasks}</td><td className={td + ' text-right'}><ScoreBadge score={a.avg} settings={s} /></td><td className={td + ' text-right tnum'}>{a.autofails}</td></tr>;
             })}
-            {!data.cur.length && !data.prev.length && <tr><td colSpan={5} className="px-3 py-6 text-center text-muted">No QA evaluations are available for this reporting period.</td></tr>}</tbody>
+            {!data.cur.length && <tr><td colSpan={4} className="px-3 py-6 text-center text-muted">No QA evaluations are available for this reporting period.</td></tr>}</tbody>
           </Table>
         </Card>
       </>)}

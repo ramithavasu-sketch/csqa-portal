@@ -5,10 +5,10 @@ import { useApp, useRef_ } from '../app/context';
 import { useScopeData } from '../app/useScope';
 import { PageHeader } from '../components/Layout';
 import { PeriodPicker, usePeriodSelection } from '../components/PeriodPicker';
-import { Card, EmptyState, ErrorBox, Kpi, Loading, ScoreBadge, StatusBadge, Table, td, th, Variance } from '../components/ui';
+import { Card, EmptyState, ErrorBox, Kpi, Loading, ScoreBadge, StatusBadge, Table, td, th } from '../components/ui';
 import { TrendSwitch } from '../components/charts';
 import { DownloadMenu, EvaluationsTable, InsightsPanel, ParameterAnalysis } from '../components/shared';
-import { appealWindowOpen, band, BAND_LABEL, finalRating, RATING_LABEL, buildInsights, fmtDate, fmtPct, isPendingAppeal, isResolvedAppeal, summarize, variance } from '../lib/metrics';
+import { appealWindowOpen, band, BAND_LABEL, finalRating, RATING_LABEL, buildInsights, fmtDate, fmtPct, isPendingAppeal, isResolvedAppeal, summarize } from '../lib/metrics';
 import { buildReport } from '../lib/report';
 
 export default function CamDashboard({ camId: propCam, embedded }: { camId?: string; embedded?: boolean } = {}) {
@@ -22,8 +22,6 @@ export default function CamDashboard({ camId: propCam, embedded }: { camId?: str
   const s = ref.settings;
 
   const cur = summarize(data.cur);
-  const prev = summarize(data.prev);
-  const v = variance(cur.avg, prev.avg);
   const insights = useMemo(() => buildInsights(data.cur, data.prev, data.history, data.historyWeeks, ref.parameters, ref.taskTypeNames, s),
     [data.cur, data.prev, data.history, data.historyWeeks, ref.parameters, ref.taskTypeNames, s]);
   const curIds = new Set(data.cur.map((e) => e.id));
@@ -59,9 +57,7 @@ export default function CamDashboard({ camId: propCam, embedded }: { camId?: str
             <Kpi label="Final Rating" term="Final Rating" value={<span className="text-[20px]">{RATING_LABEL[finalRating(cur, s)]}</span>}
               tone={finalRating(cur, s) === 'meets' ? 'good' : finalRating(cur, s) === 'improve' ? 'warn' : finalRating(cur, s) === 'below' ? 'bad' : 'neutral'}
               sub={cur.avg === null ? '—' : `raw score ${fmtPct(cur.avg)} · autofail rate ${cur.autofailRate?.toFixed(2)}%`} />
-            <Kpi label={`Previous ${periodWord} Score`} term="Average QA Score" value={fmtPct(prev.avg)} sub={sel.previousLabel} />
-            <Kpi label="Score Variance" term="Score Variance" value={<Variance value={v} />} sub="percentage points vs previous" />
-            <Kpi label="Tasks Audited" term="Tasks Audited" value={cur.tasks} sub={`${prev.tasks} in previous period`} />
+            <Kpi label="Tasks Audited" term="Tasks Audited" value={cur.tasks} sub={sel.label} />
             <Kpi label="Autofails" term="Autofails" value={cur.autofails} tone={cur.autofails ? 'bad' : 'neutral'} sub={cur.tasks ? `${cur.autofailRate?.toFixed(2)}% of tasks · limit < ${s.qa_target.autofail_rate_max}%` : '—'} />
             <Kpi label="Appeals Submitted" value={periodAppeals.filter((a) => a.status !== 'draft').length} sub="on tasks in this period" />
             <Kpi label="Appeals Pending" term="Appeals" value={data.appeals.filter(isPendingAppeal).length} sub={`all periods${data.appeals.some((a) => a.status === 'draft') ? ` · ${data.appeals.filter((a) => a.status === 'draft').length} draft(s) not submitted` : ''}`} tone={data.appeals.some((a) => a.status === 'returned_to_cam' || (a.status === 'pending_additional_info' && a.info_requested_from === 'cam')) ? 'warn' : 'neutral'} />
@@ -96,12 +92,12 @@ export default function CamDashboard({ camId: propCam, embedded }: { camId?: str
             </Card>
           </div>
 
-          <Card title="Parameter-level performance" subtitle="Which parameters contributed to the score, compared with the previous period.">
+          <Card title="Parameter-level performance" subtitle={`Which parameters contributed to the score in ${sel.label}.`}>
             <ParameterAnalysis cur={data.cur} prev={data.prev} parameters={ref.parameters} taskTypeNames={ref.taskTypeNames} settings={s} />
           </Card>
 
-          <Card title="Strengths and improvement areas" subtitle={`${sel.label} compared with ${sel.previousLabel}`}>
-            {data.cur.length ? <InsightsPanel insights={insights} /> : <p className="text-[13px] text-muted">No QA evaluations are available for this reporting period.</p>}
+          <Card title="Strengths and improvement areas" subtitle={sel.label}>
+            {data.cur.length ? <InsightsPanel insights={insights} hide={['positive', 'declining']} /> : <p className="text-[13px] text-muted">No QA evaluations are available for this reporting period.</p>}
           </Card>
 
           <Card title="Task-level audit results" subtitle="Open a task to see every parameter, the QA feedback and to raise an appeal." pad={false}>

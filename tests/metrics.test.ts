@@ -40,9 +40,10 @@ describe('period selection', () => {
 });
 
 describe('parameters and repeat errors', () => {
-  it('excludes autofails and NA from parameter %', () => {
-    const [st] = parameterStats([ev('a', 'p38', 100, 10), ev('b', 'p38', 90, 0), ev('c', 'p38', 0, 0, true), ev('d', 'p38', 100, null)], [param], { ER: 'Email Request' });
-    expect(st.evaluated).toBe(2); expect(st.pct).toBe(50); expect(st.deductions).toBe(1);
+  it('counts an autofailed task as 0 on every parameter and excludes NA', () => {
+    // c is autofailed with full marks recorded on the parameter: it still counts as 0
+    const [st] = parameterStats([ev('a', 'p38', 100, 10), ev('b', 'p38', 90, 0), ev('c', 'p38', 0, 10, true), ev('d', 'p38', 100, null)], [param], { ER: 'Email Request' });
+    expect(st.evaluated).toBe(3); expect(st.pct).toBe(33.33); expect(st.deductions).toBe(2); expect(st.pointsLost).toBe(20);
   });
   it('counts consecutive deducted weeks', () => {
     const evals = [ev('a', 'p36', 90, 0), ev('b', 'p37', 90, 0), ev('c', 'p38', 90, 0), ev('d', 'p35', 100, 10)];

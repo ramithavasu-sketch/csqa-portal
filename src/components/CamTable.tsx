@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Search } from 'lucide-react';
-import { Pagination, Pill, ScoreBadge, Sparkline, Table, td, th, Variance, inputBase, InfoTip } from './ui';
+import { Pagination, Pill, ScoreBadge, Sparkline, Table, td, th, inputBase, InfoTip } from './ui';
 import type { CamRow } from '../lib/metrics';
 import type { PortalSettings } from '../lib/types';
 
@@ -52,7 +52,7 @@ export function CamTable({ rows, settings, showLead = true, pageSize = 15 }: { r
       <Table>
         <thead><tr>
           <H k="name">CAM Name</H>{showLead && <H k="lead">Team Lead</H>}<H k="tasks" right term="Tasks Audited">Tasks Audited</H><H k="avg" right term="Average QA Score">Average QA Score</H>
-          <H k="prev" right>Previous Period</H><H k="variance" right term="Score Variance">Score Variance</H><H k="autofails" right term="Autofails">Autofails</H><H k="appeals" right>Appeals</H>
+          <H k="autofails" right term="Autofails">Autofails</H><H k="appeals" right>Appeals</H>
           <th className={th}><span className="inline-flex items-center gap-1">Appeal Status <InfoTip text="Appeals on tasks in the selected period: open / total, or how many were resolved." /></span></th><th className={th}><span className="inline-flex items-center gap-1">Trend <InfoTip text="Last 6 audit weeks. Dashed line = QA target. Gaps = No Data." /></span></th>
         </tr></thead>
         <tbody>
@@ -65,8 +65,6 @@ export function CamTable({ rows, settings, showLead = true, pageSize = 15 }: { r
               {showLead && <td className={td + ' whitespace-nowrap text-muted'}>{r.leadName}</td>}
               <td className={td + ' text-right tnum'}>{r.tasks}</td>
               <td className={td + ' text-right'}>{r.tasks ? <ScoreBadge score={r.avg} settings={settings} /> : <span className="text-faint">No Data</span>}</td>
-              <td className={td + ' text-right tnum text-muted'}>{r.prevAvg === null ? 'No Data' : `${r.prevAvg.toFixed(2)}%`}</td>
-              <td className={td + ' text-right'}><Variance value={r.variance} /></td>
               <td className={td + ' text-right tnum'}>{r.autofails ? <span className="font-semibold text-bad">{r.autofails}</span> : 0}</td>
               <td className={td + ' text-right tnum'}>{r.appeals}</td>
               <td className={td + ' whitespace-nowrap text-[12.5px]'}>{r.appealsOpen ? <Pill tone="info">{r.appealSummary}</Pill> : <span className="text-muted">{r.appealSummary}</span>}</td>

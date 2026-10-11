@@ -41,7 +41,7 @@ export function DownloadMenu({ build, label = 'Download Report', empty }: { buil
 }
 
 /** Parameter-level table + bar chart per task type, with drill-down to the related tasks. */
-export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settings, compare = true, showTable = true }: {
+export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settings, compare = false, showTable = true }: {
   cur: Evaluation[]; prev: Evaluation[]; parameters: Parameter[]; taskTypeNames: Record<string, string>; settings: PortalSettings;
   /** false = show the selected period only (no previous / variance columns) */
   compare?: boolean;
@@ -73,7 +73,7 @@ export function ParameterAnalysis({ cur, prev, parameters, taskTypeNames, settin
       <div className={clsx('grid gap-4', showTable && '2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]')}>
         <div className="min-w-0">
           <ParameterBars stats={list} settings={settings} onSelect={setDrill} />
-          <p className="mt-1 text-[12px] text-muted">{typeTasks.length} {taskTypeNames[activeType]} task(s) · {typeTasks.filter((e) => e.autofail).length} autofail(s) excluded from parameter %. Dashed line = {settings.qa_target.score}% target. Click a bar for tasks.</p>
+          <p className="mt-1 text-[12px] text-muted">{typeTasks.length} {taskTypeNames[activeType]} task(s) · {typeTasks.filter((e) => e.autofail).length} autofail(s), counted as 0 on every parameter. Dashed line = {settings.qa_target.score}% target. Click a bar for tasks.</p>
         </div>
         {showTable && (
         <Table>

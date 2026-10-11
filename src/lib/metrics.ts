@@ -9,7 +9,7 @@ export const METRIC_DEFINITIONS: Record<string, string> = {
   'Autofails': 'Number of audited tasks marked Auto-Fail. Counted separately from point deductions.',
   'Autofail Rate': 'Autofails ÷ tasks audited.',
   'FCR Rate': 'Tasks with First Contact Resolution = Yes ÷ tasks where FCR was recorded. FCR does not affect the task score.',
-  'Parameter %': 'Points earned ÷ maximum points for that parameter across the tasks where it was evaluated. Autofailed tasks are excluded so parameter results reflect scored work.',
+  'Parameter %': 'Points earned ÷ maximum points for that parameter across the tasks where it was evaluated. An autofailed task counts as 0 on every parameter.',
   'Deduction': 'A parameter scored below its maximum on a task.',
   'Repeat error': 'The same parameter was deducted in consecutive audit weeks (SOP: 2 weeks = flag, 3 weeks = coaching with Team Lead).',
   'Period': 'Weeks are the QA audit weeks (e.g. WK-38). A week belongs to the month/quarter in which it starts. The comparison period is the immediately preceding period of the same length.',
@@ -204,19 +204,20 @@ export function parameterStats(evals: Evaluation[], parameters: Parameter[], tas
     map.set(p.id, { parameter: p, taskTypeName: taskTypeNames[p.task_type] ?? p.task_type, evaluated: 0, deductions: 0, earned: 0, max: 0, pct: null, pointsLost: 0, refs: [] });
   }
   for (const e of evals) {
-    if (e.autofail) continue;
     for (const s of e.scores) {
       const st = map.get(s.parameter_id);
       if (!st || s.earned === null) continue;
+      // an autofailed task counts as 0 on every parameter it was scored on
+      const earned = e.autofail ? 0 : Number(s.earned);
       st.evaluated += 1;
-      st.earned += Number(s.earned);
+      st.earned += earned;
       st.max += Number(s.max_score);
-      const deducted = Number(s.earned) < Number(s.max_score);
+      const deducted = earned < Number(s.max_score);
       if (deducted) {
         st.deductions += 1;
-        st.pointsLost += Number(s.max_score) - Number(s.earned);
+        st.pointsLost += Number(s.max_score) - earned;
       }
-      st.refs.push({ evaluationId: e.id, taskId: e.task_id, periodLabel: e.period_short_label, auditedAt: e.audited_at, earned: s.earned, max: s.max_score, feedback: e.feedback, remarks: s.remarks, deducted });
+      st.refs.push({ evaluationId: e.id, taskId: e.task_id, periodLabel: e.period_short_label, auditedAt: e.audited_at, earned, max: s.max_score, feedback: e.feedback, remarks: e.autofail ? (s.remarks ? `Autofail · ${s.remarks}` : 'Autofail') : s.remarks, deducted });
     }
   }
   for (const st of map.values()) st.pct = st.max ? round2((100 * st.earned) / st.max) : null;
@@ -238,10 +239,10 @@ export function deductionStreak(paramId: string, evals: Evaluation[], weeks: Per
   const sorted = [...weeks].sort(byStart).reverse();
   let streak = 0;
   for (const w of sorted) {
-    const we = evals.filter((e) => e.period_id === w.id && !e.autofail);
+    const we = evals.filter((e) => e.period_id === w.id);
     const evaluated = we.some((e) => e.scores.some((s) => s.parameter_id === paramId && s.earned !== null));
     if (!evaluated) break;
-    const deducted = we.some((e) => e.scores.some((s) => s.parameter_id === paramId && s.earned !== null && Number(s.earned) < Number(s.max_score)));
+    const deducted = we.some((e) => e.scores.some((s) => s.parameter_id === paramId && s.earned !== null && (e.autofail || Number(s.earned) < Number(s.max_score))));
     if (!deducted) break;
     streak += 1;
   }
