@@ -59,15 +59,24 @@ function pushToPortalLocked(overlap) {
   for (const tab of TABS) {
     const sheet = book.getSheetByName(tab.name);
     if (!sheet) { summary.push(`${tab.name}: tab not found`); continue; }
-    const lastRow = sheet.getLastRow();
+    const sheetLast = sheet.getLastRow();
     const lastCol = sheet.getLastColumn();
-    if (lastRow < 2) { summary.push(`${tab.name}: no rows`); continue; }
+    if (sheetLast < 2) { summary.push(`${tab.name}: no rows`); continue; }
     const header = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+    // Google counts formatted / formula rows below the data as "used", so find the last row that
+    // really has an audit (a Timestamp) instead of trusting getLastRow().
+    const tsIdx = header.findIndex((h) => keyOf(h) === 'timestamp');
+    let lastRow = sheetLast;
+    if (tsIdx >= 0) {
+      const ts = sheet.getRange(2, tsIdx + 1, sheetLast - 1, 1).getDisplayValues();
+      lastRow = 1;
+      for (let i = ts.length - 1; i >= 0; i--) { if (String(ts[i][0]).trim() !== '') { lastRow = i + 2; break; } }
+    }
+    if (lastRow < 2) { summary.push(`${tab.name}: no audits yet`); continue; }
     const key = 'pushed_up_to:' + tab.name;
-    // If the tab got shorter than where we stopped last time (rows deleted, sorted or moved),
-    // start again from the top: rows already in the portal are skipped as duplicates.
-    if (Number(props.getProperty(key) || 0) > lastRow) props.deleteProperty(key);
-    let from = Math.max(2, Number(props.getProperty(key) || 1) + 1 - (overlap ?? OVERLAP));
+    // never resume below the real data (rows deleted / sorted, or an old cursor past blank rows)
+    const cursor = Math.min(Number(props.getProperty(key) || 1), lastRow);
+    let from = Math.max(2, cursor + 1 - (overlap ?? OVERLAP));
     let totals = { inserted: 0, duplicates: 0, rejected: 0 };
 
     while (from <= lastRow) {
