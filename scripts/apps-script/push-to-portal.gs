@@ -99,6 +99,7 @@ function pushToPortalLocked(overlap) {
     summary.push(`${tab.name}: ${totals.inserted} new · ${totals.updated || 0} updated from sheet edits · ${totals.duplicates} already in the portal · ${totals.rejected} rejected`);
   }
   try { summary.push(pullScoreChangesLocked()); } catch (e) { summary.push('Score changes: ' + e.message); }
+  try { summary.push(pushTeamList()); } catch (e) { summary.push('Team List: ' + e.message); }
   console.log(summary.join('\n'));
   return summary.join('\n');
 }
@@ -226,6 +227,7 @@ function everyMinute() {
   if (new Date().getMinutes() % 10 === 0) {   // feedback sessions: every 10 minutes is plenty
     try { out.push(pushFeedbackResponses()); } catch (e) { out.push('Feedback responses: ' + e.message); }
     try { out.push(pushFeedbackBookings()); } catch (e) { out.push('Feedback bookings: ' + e.message); }
+    try { out.push(pushTeamList()); } catch (e) { out.push('Team List: ' + e.message); }
     try { out.push(writeFeedbackSheet()); } catch (e) { out.push('Feedback sheet: ' + e.message); }
   }
   console.log(out.join('\n'));
@@ -289,6 +291,29 @@ function pushFeedbackResponses() {
     agrees: v(r, c.agrees), feedback: v(r, c.feedback), lead_name: v(r, c.lead_name), qa_feedback: v(r, c.qa) }));
   const res = portalCall_({ action: 'feedback_responses', rows: rows });
   return 'Feedback responses: ' + rows.length + ' sent, ' + (res.new || 0) + ' new, ' + (res.completed || 0) + ' sessions marked completed';
+}
+
+/**
+ * Sends the CAM list from the "Team List" tab (Email Address column, row 11 down — rows above are
+ * managers and Leads) to the portal. The weekly scorecard counts only these CAMs, and lists the ones
+ * with no audits as the exclusion list. Change the tab / first row with Script Properties
+ * TEAM_LIST_TAB and TEAM_LIST_FIRST_ROW.
+ */
+function pushTeamList() {
+  const p = PropertiesService.getScriptProperties();
+  const tabName = p.getProperty('TEAM_LIST_TAB') || 'Team List';
+  const first = Number(p.getProperty('TEAM_LIST_FIRST_ROW') || 11);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(tabName);
+  if (!sheet) return 'Team List: tab "' + tabName + '" not found';
+  const last = sheet.getLastRow();
+  if (last < first) return 'Team List: no rows from row ' + first;
+  const head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
+  const col = head.findIndex((h) => keyOf(h) === 'emailaddress');
+  if (col < 0) return 'Team List: no "Email Address" column';
+  const emails = sheet.getRange(first, col + 1, last - first + 1, 1).getDisplayValues().map((r) => String(r[0]).trim().toLowerCase())
+    .filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  const res = portalCall_({ action: 'team_list', emails: emails });
+  return 'Team List: ' + (res.members || 0) + ' CAMs sent (rows ' + first + '–' + last + ')';
 }
 
 /** Sends the Setmore bookings ("Booked Sessions" tab of the Feedback Sessions sheet) to the portal. */
@@ -375,7 +400,7 @@ function writeFeedbackSheet() {
 }
 
 /** Run once to send the feedback responses and fill the Feedback Sessions sheet right away. */
-function syncFeedbackNow() { const t = [pushFeedbackResponses(), pushFeedbackBookings(), writeFeedbackSheet()].join('\n'); console.log(t); return t; }
+function syncFeedbackNow() { const t = [pushTeamList(), pushFeedbackResponses(), pushFeedbackBookings(), writeFeedbackSheet()].join('\n'); console.log(t); return t; }
 
 /** Run once to see what the weekly reminder looks like (emails it to you right away). */
 function testPublishReminder() { return publishReminder(true); }

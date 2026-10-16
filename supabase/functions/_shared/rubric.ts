@@ -135,7 +135,8 @@ export interface PortalSettings {
   };
   /** Feedback sessions every few audit weeks: Setmore booking link and cycle numbering. */
   /** Weekly overall scorecard email: sender, default recipients, Chat Team lead. */
-  scorecard: { from_email: string; from_name: string; to: string; cc: string; chat_lead_id: string | null; /** email layout */ format?: 'new' | 'classic' };
+  scorecard: { from_email: string; from_name: string; to: string; cc: string; chat_lead_id: string | null; /** email layout */ format?: 'new' | 'classic';
+    /** CAM emails from the audit sheet's Team List tab (rows 11+); only these are counted */ members?: string[]; members_synced_at?: string };
   feedback: { booking_url: string; /** Google Form CAMs fill in after the session */ form_url?: string; anchor_number: number; anchor_start: string; weeks_per_cycle: number; book_by_days: number };
 }
 

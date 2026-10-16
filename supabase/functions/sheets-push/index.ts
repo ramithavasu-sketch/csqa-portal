@@ -65,6 +65,13 @@ Deno.serve(async (req) => {
       if (error) throw new HttpError(500, error.message);
       return json(data);
     }
+    // CAM list from the audit sheet's "Team List" tab (rows 11+): members counted in the weekly scorecard.
+    if (body?.action === 'team_list') {
+      const emails = Array.isArray((body as { emails?: unknown }).emails) ? (body as { emails: unknown[] }).emails.map(String).slice(0, 1000) : [];
+      const { data, error } = await serviceClient().rpc('set_scorecard_members', { p_emails: emails });
+      if (error) throw new HttpError(500, error.message);
+      return json({ members: data });
+    }
     // Setmore bookings from the Feedback Sessions sheet's "Booked Sessions" tab.
     if (body?.action === 'feedback_bookings') {
       const rows = Array.isArray((body as { rows?: unknown }).rows) ? (body as { rows: unknown[] }).rows.slice(0, 2000) : [];

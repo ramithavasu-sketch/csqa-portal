@@ -17,12 +17,17 @@ export interface ScorecardTeam {
 }
 
 /** Split the week's audits into CS Team and Chat Team (CAMs whose Team Lead is the chosen Chat Lead). */
-export function scorecardTeams(evals: Evaluation[], employees: Employee[], teams: Team[], chatLeadId: string | null): ScorecardTeam[] {
+export function scorecardTeams(evals: Evaluation[], employees: Employee[], teams: Team[], chatLeadId: string | null, members?: string[] | null): ScorecardTeam[] {
   const chatTeamIds = new Set(teams.filter((t) => chatLeadId && t.lead_id === chatLeadId).map((t) => t.id));
   const isChat = (e: Employee | undefined) => !!e?.team_id && chatTeamIds.has(e.team_id);
   const byId = new Map(employees.map((e) => [e.id, e]));
+  // with the sheet's Team List: only its CAMs count, and its CAMs without audits are the exclusions
+  const list = members?.length ? new Set(members.map((m) => m.toLowerCase())) : null;
+  if (list) evals = evals.filter((e) => list.has((e.cam_email ?? '').toLowerCase()));
   const audited = new Set(evals.map((e) => e.cam_id));
-  const cams = (chat: boolean) => employees.filter((e) => e.status === 'active' && e.role === 'user' && !e.is_demo && isChat(e) === chat);
+  const cams = (chat: boolean) => (list
+    ? [...list].map((m) => employees.find((e) => e.email.toLowerCase() === m) ?? ({ id: m, email: m, full_name: m, role: 'user', status: 'active', team_id: null } as Employee))
+    : employees.filter((e) => e.status === 'active' && e.role === 'user' && !e.is_demo)).filter((e) => isChat(e) === chat);
   const out: ScorecardTeam[] = [
     { key: 'cs', title: 'CS TEAM', camIds: new Set(), evals: [], notAudited: cams(false).filter((e) => !audited.has(e.id)) },
     { key: 'chat', title: 'CHAT TEAM', camIds: new Set(), evals: [], notAudited: cams(true).filter((e) => !audited.has(e.id)) },
@@ -88,10 +93,10 @@ function teamTable(t: ScorecardTeam, period: Period, cols: Col[]) {
 
 export function buildScorecard(o: {
   period: Period; evals: Evaluation[]; employees: Employee[]; teams: Team[]; parameters: Parameter[]; taskTypes: TaskType[];
-  settings: PortalSettings; chatLeadId: string | null; exclusions: Record<string, string>; nextWeekLabel: string;
+  settings: PortalSettings; chatLeadId: string | null; exclusions: Record<string, string>; nextWeekLabel: string; members?: string[] | null;
 }) {
   const s = o.settings;
-  const teams = scorecardTeams(o.evals, o.employees, o.teams, o.chatLeadId);
+  const teams = scorecardTeams(o.evals, o.employees, o.teams, o.chatLeadId, o.members);
   const types = [...o.taskTypes].sort((a, b) => a.sort_order - b.sort_order);
   const p = 'font-family:Arial,sans-serif;font-size:14px;color:#222;margin:0 0 10px';
   const link = reportLink(s, o.period);
@@ -145,7 +150,7 @@ export function buildScorecard(o: {
  */
 export function buildScorecardSummary(o: Parameters<typeof buildScorecard>[0]) {
   const s = o.settings;
-  const teams = scorecardTeams(o.evals, o.employees, o.teams, o.chatLeadId);
+  const teams = scorecardTeams(o.evals, o.employees, o.teams, o.chatLeadId, o.members);
   const link = reportLink(s, o.period);
   const all = teams.flatMap((t) => t.evals);
   const avg = (l: Evaluation[]) => (l.length ? l.reduce((a, e) => a + Number(e.score), 0) / l.length : null);

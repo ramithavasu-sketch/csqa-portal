@@ -28,18 +28,22 @@ export function ScorecardCard({ period }: { period: Period }) {
   const isSuper = me?.role === 'super_admin';
   const leads = ref.employees.filter((e) => e.status === 'active' && ref.teams.some((t) => t.lead_id === e.id)).sort((a, b) => a.full_name.localeCompare(b.full_name));
   const list = (evals.data ?? []) as Evaluation[];
+  const members = cfg.members ?? [];
+  const [useList, setUseList] = useState(members.length > 0);
+  const memberSet = new Set(members.map((m) => m.toLowerCase()));
+  const outside = members.length ? [...new Map(list.filter((e) => !memberSet.has((e.cam_email ?? '').toLowerCase())).map((e) => [e.cam_email, list.filter((x) => x.cam_email === e.cam_email).length])).entries()] : [];
 
   // pre-fill the exclusion lists with active CAMs who had no audits this week
   useEffect(() => {
     if (!evals.data) return;
-    const teams = scorecardTeams(list, ref.employees, ref.teams, chatLead || null);
+    const teams = scorecardTeams(list, ref.employees, ref.teams, chatLead || null, useList ? members : null);
     setExcl(Object.fromEntries(teams.map((t) => [t.key, t.notAudited.map((e) => e.email).join('\n')])));
-  }, [evals.data, chatLead]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [evals.data, chatLead, useList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const next = ref.periods.find((p) => p.start_date > period.start_date);
   const mail = useMemo(() => (evals.data ? (format === 'new' ? buildScorecardSummary : buildScorecard)({ period, evals: list, employees: ref.employees, teams: ref.teams, parameters: ref.parameters,
-    taskTypes: ref.taskTypes, settings: s, chatLeadId: chatLead || null, exclusions: excl, nextWeekLabel: next?.short_label ?? 'next week' }) : null),
-  [evals.data, excl, chatLead, period, ref, s, next, format]); // eslint-disable-line react-hooks/exhaustive-deps
+    taskTypes: ref.taskTypes, settings: s, chatLeadId: chatLead || null, exclusions: excl, nextWeekLabel: next?.short_label ?? 'next week', members: useList ? members : null }) : null),
+  [evals.data, excl, chatLead, period, ref, s, next, format, useList]); // eslint-disable-line react-hooks/exhaustive-deps
   const count = (v: string) => v.split(/[\s,;]+/).filter(Boolean).length;
 
   const openInBrowser = () => {
@@ -75,6 +79,13 @@ export function ScorecardCard({ period }: { period: Period }) {
         <div className="flex flex-col gap-4">
           <ErrorBox error={evals.error} />
           {last && <p className="text-[13px]">Last sent {fmtDateTime(last.created_at)} by {last.created_by_name ?? 'QA'} · <Pill tone={last.status === 'sent' ? 'good' : last.status === 'failed' ? 'bad' : 'info'}>{last.status === 'sent' ? 'Sent' : last.status === 'failed' ? 'Failed' : 'Queued'}</Pill>{last.last_error && <span className="ml-2 text-bad">{last.last_error}</span>}</p>}
+          <div className="rounded bg-sunken px-3 py-2 text-[12.5px]">
+            {members.length ? (<>
+              <label className="flex items-start gap-2"><input type="checkbox" className="mt-0.5" checked={useList} onChange={(e) => setUseList(e.target.checked)} />
+                <span>Count only the <strong>{members.length} CAMs on the sheet’s Team List</strong> (rows 11 and below){cfg.members_synced_at ? <span className="text-muted"> · updated {fmtDateTime(cfg.members_synced_at)}</span> : null}. Team List CAMs with no audits go in the exclusion list.</span></label>
+              {useList && outside.length > 0 && <div className="mt-1 text-warn">Left out (not on the Team List): {outside.map(([e, n]) => `${e} (${n} task${n > 1 ? 's' : ''})`).join(', ')}</div>}
+            </>) : <span className="text-muted">Team List from the sheet not received yet — paste the latest sheet script and run pushToPortal. Until then all active CAMs are counted.</span>}
+          </div>
           <div className="grid gap-3 lg:grid-cols-2">
             <Field label={`To (${count(to)})`} htmlFor="sc-to"><textarea id="sc-to" rows={3} className={textareaCls} value={to} onChange={(e) => setTo(e.target.value)} /></Field>
             <Field label={`Cc (${count(cc)})`} htmlFor="sc-cc"><textarea id="sc-cc" rows={3} className={textareaCls} value={cc} onChange={(e) => setCc(e.target.value)} /></Field>
