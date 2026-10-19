@@ -65,6 +65,16 @@ Deno.serve(async (req) => {
       if (error) throw new HttpError(500, error.message);
       return json(data);
     }
+    // The sheet is the source of truth for recent weeks: remove portal audits no longer in it
+    // (corrected link, deleted row, moved week) — never ones with an appeal or correction.
+    if (body?.action === 'reconcile') {
+      const b = body as { weeks?: unknown; keys?: unknown };
+      const weeks = Array.isArray(b.weeks) ? b.weeks.map(String).slice(0, 10) : [];
+      const keys = Array.isArray(b.keys) ? b.keys.slice(0, 20000) : [];
+      const { data, error } = await serviceClient().rpc('reconcile_evaluations', { p_weeks: weeks, p_keys: keys });
+      if (error) throw new HttpError(500, error.message);
+      return json(data);
+    }
     // CAM list from the audit sheet's "Team List" tab (rows 11+): members counted in the weekly scorecard.
     if (body?.action === 'team_list') {
       const emails = Array.isArray((body as { emails?: unknown }).emails) ? (body as { emails: unknown[] }).emails.map(String).slice(0, 1000) : [];

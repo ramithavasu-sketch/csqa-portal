@@ -100,6 +100,7 @@ function pushToPortalLocked(overlap) {
   }
   try { summary.push(pullScoreChangesLocked()); } catch (e) { summary.push('Score changes: ' + e.message); }
   try { summary.push(pushTeamList()); } catch (e) { summary.push('Team List: ' + e.message); }
+  if ((overlap ?? OVERLAP) >= OVERLAP) { try { summary.push(reconcileRecentWeeks()); } catch (e) { summary.push('Clean-up: ' + e.message); } }
   console.log(summary.join('\n'));
   return summary.join('\n');
 }
@@ -291,6 +292,38 @@ function pushFeedbackResponses() {
     agrees: v(r, c.agrees), feedback: v(r, c.feedback), lead_name: v(r, c.lead_name), qa_feedback: v(r, c.qa) }));
   const res = portalCall_({ action: 'feedback_responses', rows: rows });
   return 'Feedback responses: ' + rows.length + ' sent, ' + (res.new || 0) + ' new, ' + (res.completed || 0) + ' sessions marked completed';
+}
+
+const RECONCILE_WEEKS = 6;   // weeks the portal mirrors exactly from the sheet
+
+/**
+ * Sends (task link, CAM, week) of every row in the last few audit weeks so the portal can remove
+ * audits that are no longer in the sheet (a corrected link, a deleted row, a row moved to another
+ * week). The portal never removes a task with an appeal or a QA correction, skips a week with no
+ * rows, and refuses if more than 10% of a week would go.
+ */
+function reconcileRecentWeeks() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TABS[0].name);
+  if (!sheet) return 'Clean-up: tab not found';
+  const last = sheet.getLastRow();
+  if (last < 2) return 'Clean-up: no rows';
+  const head = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
+  const ci = (k) => head.findIndex((h) => keyOf(h) === k);
+  const cL = ci('dstasklink'), cC = ci('camname'), cW = ci('qaweek');
+  if (cL < 0 || cC < 0 || cW < 0) return 'Clean-up: DS Task Link / CAM Name / QA Week columns not found';
+  const read = (c) => sheet.getRange(2, c + 1, last - 1, 1).getDisplayValues().map((r) => String(r[0]).trim());
+  const links = read(cL), cams = read(cC), weeks = read(cW);
+  const order = (w) => { const m = /WK-?\s*(\d+)\s*:\s*(\d{4})/i.exec(w); return m ? Number(m[2]) * 100 + Number(m[1]) : 0; };
+  const recent = [...new Set(weeks.filter((w) => order(w) > 0))].sort((a, b) => order(b) - order(a)).slice(0, RECONCILE_WEEKS);
+  const keep = new Set(recent);
+  const keys = [];
+  for (let i = 0; i < links.length; i++) if (keep.has(weeks[i]) && links[i]) keys.push([links[i], cams[i].toLowerCase(), weeks[i]]);
+  const res = portalCall_({ action: 'reconcile', weeks: recent, keys: keys });
+  const removed = res.removed || [];
+  removed.forEach((r) => console.log('Removed from portal (no longer in the sheet): ' + r.week + ' ' + r.cam + ' ' + r.task_link));
+  (res.kept_with_appeal || []).forEach((r) => console.log('Not in the sheet but kept (appeal / correction): ' + r.week + ' ' + r.cam + ' ' + r.task_link));
+  (res.skipped || []).forEach((m) => console.log('Clean-up skipped ' + m));
+  return 'Clean-up: ' + removed.length + ' removed (last ' + recent.length + ' weeks match the sheet)';
 }
 
 /**
