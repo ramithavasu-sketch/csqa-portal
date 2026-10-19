@@ -15,7 +15,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 // What each role can do — shown in the invitation so people know what to expect.
 const ACCESS: Record<string, { title: string; items: string[] }> = {
   user: { title: 'CAM', items: ['See your own weekly QA scores and the feedback on every audited task', 'Raise an appeal on a task within the appeal window', 'Book and track your feedback session with QA'] },
-  admin: { title: 'Team Lead', items: ['See the QA results of your team and each CAM in it', 'Review your CAMs’ appeals and add your recommendation before QA decides', 'Track your team’s feedback sessions'] },
+  admin: { title: 'Team Lead', items: ['See the QA results of your team and each CAM in it', 'Review your CAMs’ appeals and add your recommendation before QA decides', 'Track your team’s feedback sessions and performance'] },
   evaluator: { title: 'QA Evaluator', items: ['See every team’s audits, dashboards and reports', 'Decide appeals and correct scores', 'Publish audit weeks and send the weekly report emails'] },
   super_admin: { title: 'Super Admin', items: ['Everything QA Evaluators can do', 'Manage users, teams, scoring and portal settings'] },
 };
