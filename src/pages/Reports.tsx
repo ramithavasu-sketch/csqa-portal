@@ -19,9 +19,9 @@ function useScopes() {
       out.push({ key: 'team', label: 'My whole team', kind: 'team', cams: camsOfLead(me!.id) });
       camsOfLead(me!.id).forEach((c) => out.push({ key: c.id, label: c.full_name, kind: 'cam', cams: [c] }));
     }
-    if (isQaRole(me!.role)) {
+    if (isQaRole(me!.role) || me!.role === 'manager') {
       out.push({ key: 'org', label: 'All teams (organisation)', kind: 'org', cams: ref.employees.filter(isReportee) });
-      ref.employees.filter((e) => e.role === 'admin').forEach((l) => out.push({ key: 'lead:' + l.id, label: `Team of ${l.full_name}`, kind: 'team', cams: camsOfLead(l.id) }));
+      ref.employees.filter((e) => (e.role === 'admin' || e.role === 'manager') && ref.teams.some((t) => t.lead_id === e.id)).forEach((l) => out.push({ key: 'lead:' + l.id, label: `Team of ${l.full_name}`, kind: 'team', cams: camsOfLead(l.id) }));
       ref.employees.filter(isReportee).forEach((c) => out.push({ key: c.id, label: c.full_name, kind: 'cam', cams: [c] }));
     }
     return out;

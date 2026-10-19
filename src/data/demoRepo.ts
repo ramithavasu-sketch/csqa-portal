@@ -303,13 +303,13 @@ export class DemoRepo implements Repo {
     const team = cam?.team_id ? this.s.teams.find((t) => t.id === cam.team_id) : undefined;
     return team?.lead_id === me.id;
   }
-  private canViewCam(camId: string) { return this.isQa() || camId === this.meId || this.isLeadOf(camId); }
+  private canViewCam(camId: string) { return this.isQa() || this.meOrNull()?.role === 'manager' || camId === this.meId || this.isLeadOf(camId); }
   private published(periodId: string) { return this.s.periods.find((p) => p.id === periodId)?.status === 'published'; }
   private canViewEval(e: RawEvaluation) { return this.isQa() || (this.canViewCam(e.cam_id) && this.published(e.period_id)); }
   private canViewAppeal(a: RawAppeal) {
     const me = this.meOrNull();
     if (!me) return false;
-    return me.role === 'super_admin' || me.role === 'evaluator' || a.cam_id === me.id || (me.role === 'admin' && (a.lead_id === me.id || this.isLeadOf(a.cam_id)));
+    return me.role === 'super_admin' || me.role === 'evaluator' || (me.role === 'manager' && a.status !== 'draft') || a.cam_id === me.id || (me.role === 'admin' && (a.lead_id === me.id || this.isLeadOf(a.cam_id)));
   }
   private require(cond: boolean, msg: string) { if (!cond) throw new Error(msg); }
 
@@ -1027,7 +1027,7 @@ export class DemoRepo implements Repo {
     this.requireSuper();
     const email = String(e.email ?? '').trim().toLowerCase();
     this.require(/^[^@\s]+@[^@\s]+$/.test(email), 'Enter a valid email address');
-    this.require(['super_admin', 'evaluator', 'admin', 'user'].includes(e.role), 'Choose a valid role');
+    this.require(['super_admin', 'evaluator', 'manager', 'admin', 'user'].includes(e.role), 'Choose a valid role');
     this.require(e.status === undefined || e.status === 'active' || e.status === 'inactive', 'Choose a valid status');
     this.require(e.team_id == null || this.s.teams.some((t) => t.id === e.team_id), 'That team does not exist');
     const full_name = String(e.full_name ?? '').trim();
@@ -1362,7 +1362,7 @@ export class DemoRepo implements Repo {
     this.require(file?.kind === 'csqa-setup' && file.version === 1 && Array.isArray(file.employees) && Array.isArray(file.teams), 'This is not a CS QA Portal setup file');
     this.require(this.s.evaluations.length === 0, 'Load the setup file before syncing any audits. (Audits are already loaded here.)');
     const me = this.me();
-    const valid = (e: Employee) => typeof e.id === 'string' && typeof e.email === 'string' && typeof e.full_name === 'string' && ['super_admin', 'evaluator', 'admin', 'user'].includes(e.role);
+    const valid = (e: Employee) => typeof e.id === 'string' && typeof e.email === 'string' && typeof e.full_name === 'string' && ['super_admin', 'evaluator', 'manager', 'admin', 'user'].includes(e.role);
     const emps: Employee[] = file.employees.filter(valid).map((e) => ({ id: e.id, email: e.email.trim().toLowerCase(), full_name: e.full_name, role: e.role, status: e.status === 'inactive' ? 'inactive' : 'active', team_id: e.team_id ?? null, auth_user_id: null }));
     // You stay a Super Admin under your Google account, whatever the file says.
     let mine = emps.find((e) => e.email === me.email);

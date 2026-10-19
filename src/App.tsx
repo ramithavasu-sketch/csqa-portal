@@ -36,6 +36,7 @@ function HomeByRole() {
   const { me } = useApp();
   if (me!.role === 'super_admin' || me!.role === 'evaluator') return <QaDashboard />;
   if (me!.role === 'admin') return <LeadDashboard />;
+  if (me!.role === 'manager') return <QaDashboard />;
   return <CamDashboard />;
 }
 function RecoveryWatcher() {
@@ -53,7 +54,7 @@ function LoginRoute() {
 export default function App() {
   const QA: Role[] = ['super_admin'];                    // portal administration
   const QA_STAFF: Role[] = ['super_admin', 'evaluator'];  // QA work shared with Evaluators
-  const STAFF: Role[] = ['super_admin', 'evaluator', 'admin'];
+  const STAFF: Role[] = ['super_admin', 'evaluator', 'manager', 'admin'];
   return (
     <AppProvider>
       <ToastProvider>

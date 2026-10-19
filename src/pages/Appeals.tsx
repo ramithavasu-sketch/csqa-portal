@@ -9,7 +9,7 @@ import { isQaRole, APPEAL_STATUS_LABEL, fmtDate } from '../lib/metrics';
 import type { Appeal, AppealStatus } from '../lib/types';
 
 type TabDef = { value: string; label: string; statuses?: AppealStatus[] };
-const TABS: Record<'user' | 'admin' | 'super_admin' | 'evaluator', TabDef[]> = {
+const TABS: Record<'user' | 'admin' | 'manager' | 'super_admin' | 'evaluator', TabDef[]> = {
   user: [
     { value: 'open', label: 'In progress', statuses: ['draft', 'pending_lead_review', 'returned_to_cam', 'pending_qa_review', 'pending_additional_info'] },
     { value: 'done', label: 'Decided', statuses: ['approved', 'partially_approved', 'rejected', 'closed'] },
@@ -21,6 +21,13 @@ const TABS: Record<'user' | 'admin' | 'super_admin' | 'evaluator', TabDef[]> = {
     { value: 'qa', label: 'With QA', statuses: ['pending_qa_review', 'pending_additional_info'] },
     { value: 'done', label: 'Decided', statuses: ['approved', 'partially_approved', 'rejected', 'closed'] },
     { value: 'all', label: 'All team appeals' },
+  ],
+  manager: [
+    { value: 'mine', label: 'Awaiting my review', statuses: ['pending_lead_review'] },
+    { value: 'lead', label: 'With Team Leads', statuses: ['pending_lead_review', 'returned_to_cam'] },
+    { value: 'qa', label: 'With QA', statuses: ['pending_qa_review', 'pending_additional_info'] },
+    { value: 'done', label: 'Decided', statuses: ['approved', 'partially_approved', 'rejected', 'closed'] },
+    { value: 'all', label: 'All appeals' },
   ],
   super_admin: [
     { value: 'qa', label: 'Awaiting QA review', statuses: ['pending_qa_review'] },
@@ -61,8 +68,9 @@ export function AppealsPage() {
     .map((p) => [p.id, `${p.name} (${ref.taskTypeNames[p.task_type] ?? p.task_type})`] as [string, string]).sort((x, y) => x[1].localeCompare(y[1])),
     ...(disputed.has('AF') ? [['AF', 'Autofail'] as [string, string]] : [])];
   const pages = Math.max(1, Math.ceil(list.length / 20));
-  const title = me!.role === 'user' ? 'My Appeals' : me!.role === 'admin' ? 'Team Appeal Review Queue' : 'QA Appeal Review Queue';
+  const title = me!.role === 'user' ? 'My Appeals' : me!.role === 'admin' ? 'Team Appeal Review Queue' : me!.role === 'manager' ? 'Appeals (all teams)' : 'QA Appeal Review Queue';
   const subtitle = me!.role === 'user' ? 'Appeals go to your Team Lead first, then to QA for the final decision.'
+    : me!.role === 'manager' ? 'Every team’s appeals and their status, read-only. Appeals from a team you lead wait for your review.'
     : me!.role === 'admin' ? 'Review your CAMs’ appeals and forward them to QA with a recommendation.'
       : 'Final decisions on appeals forwarded by Team Leads.';
   const set = (k: keyof typeof f, v: string | boolean) => { setF((x) => ({ ...x, [k]: v })); setPage(1); };

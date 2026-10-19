@@ -43,6 +43,10 @@ export function finalRating(s: { avg: number | null; autofailRate: number | null
  * People whose QA results are reported: CAMs, plus Team Leads who are themselves members of a
  * team (e.g. the Leads in the Senior Manager's team). QA Super Admins are never included.
  */
+/** Sees every team (QA, or a Team Manager — read-only). */
+export const seesAllTeams = (r: string) => r === 'super_admin' || r === 'evaluator' || r === 'manager';
+/** Leads a team: a Team Lead, or a Team Manager who also leads one. */
+export const leadsTeams = (r: string) => r === 'admin' || r === 'manager';
 export const isReportee = (e: Employee) => e.role === 'user' || (e.role === 'admin' && !!e.team_id);
 /** QA staff: Super Admins and QA Evaluators (Evaluators cannot manage users, teams, scoring, settings, imports or the audit log). */
 export const isQaRole = (r: string | null | undefined) => r === 'super_admin' || r === 'evaluator';

@@ -89,7 +89,7 @@ select public.test_as('qa@test.co'); set session authorization authenticated;
 select public.expect_error($$ update public.settings set value = '{"green": 80, "amber": 90}' where key = 'thresholds' $$, '%amber at or below green%', 'thresholds validated');
 select public.expect_error($$ update public.settings set value = value || '{"week_start_dow": 9}' where key = 'reporting' $$, '%Monday%', 'week start day validated');
 select public.expect_error($$ update public.settings set value = value || '{"portal_url": "javascript:alert(1)"}' where key = 'notifications' $$, '%Portal URL%', 'portal URL validated');
-select public.expect_error($$ update public.teams set lead_id = public.tid('cam_a2') where lead_id = public.tid('lead_a') $$, '%active Admin%', 'a CAM cannot be made Team Lead');
+select public.expect_error($$ update public.teams set lead_id = public.tid('cam_a2') where lead_id = public.tid('lead_a') $$, '%active Team Lead or Team Manager%', 'a CAM cannot be made Team Lead');
 select public.expect_error($$ update public.employees set role = 'admin' where id = public.tid('qa') $$, '%own Super Admin%', 'QA cannot demote themselves');
 select public.expect_error($$ update public.employees set role = 'user' where id = public.tid('lead_a') $$, '%leads a team%', 'a Lead with a team cannot become a CAM');
 select public.expect_error($$ insert into public.employees (email, full_name, role) values ('not-an-email', 'Bad Email', 'user') $$, '%email_format%', 'employee email format validated');

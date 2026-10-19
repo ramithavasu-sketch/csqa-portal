@@ -17,7 +17,7 @@ export function ParametersPage() {
   const [sel, setSel, periods] = usePeriodSelection(isQaRole(me!.role));
   const [cam, setCam] = useState(me!.role === 'user' ? me!.id : '');
   const data = useScopeData(sel, cam ? [cam] : undefined);
-  const cams = ref.employees.filter((e) => isReportee(e) && e.id !== me!.id && (isQaRole(me!.role) || (me!.role === 'admin' && ref.teams.some((t) => t.id === e.team_id && t.lead_id === me!.id))));
+  const cams = ref.employees.filter((e) => isReportee(e) && e.id !== me!.id && (isQaRole(me!.role) || me!.role === 'manager' || (me!.role === 'admin' && ref.teams.some((t) => t.id === e.team_id && t.lead_id === me!.id))));
   const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const camName = cam === me!.id ? me!.full_name : ref.employees.find((e) => e.id === cam)?.full_name ?? '';
   const insights = useMemo(() => buildInsights(data.cur, data.prev, data.history, data.historyWeeks, ref.parameters, ref.taskTypeNames, ref.settings), [data, ref]);

@@ -36,7 +36,7 @@ export default function QaDashboard() {
   const catTypes = new Set(ref.parameters.filter((p) => category && catOf(p.section) === category).map((p) => p.task_type));
   const catParams = category ? ref.parameters.filter((p) => catOf(p.section) === category) : ref.parameters;
 
-  const leads = ref.employees.filter((e) => e.role === 'admin');
+  const leads = ref.employees.filter((e) => e.role === 'admin' || (e.role === 'manager' && ref.teams.some((t) => t.lead_id === e.id)));
   const teamOfLead = (id: string) => ref.teams.filter((t) => t.lead_id === id).map((t) => t.id);
   const allCams = ref.employees.filter(isReportee);
   const cams = allCams.filter((c) => (!leadId || (c.team_id && teamOfLead(leadId).includes(c.team_id))) && (!camPick || c.id === camPick));

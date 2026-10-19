@@ -9,9 +9,9 @@ import { repo, demoRepo, localRepo, isGoogle } from '../data';
 import { AutoSheetSync } from './SheetSync';
 import { fmtDateTime } from '../lib/metrics';
 
-const ROLE_LABEL = { super_admin: 'QA · Super Admin', evaluator: 'QA · Evaluator', admin: 'Team Lead · Admin', user: 'CAM · User' } as const;
+const ROLE_LABEL = { super_admin: 'QA · Super Admin', evaluator: 'QA · Evaluator', manager: 'Team Manager', admin: 'Team Lead · Admin', user: 'CAM · User' } as const;
 
-interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; roles?: ('super_admin' | 'evaluator' | 'admin' | 'user')[] }
+interface NavItem { to: string; label: string; icon: typeof LayoutDashboard; roles?: import('../lib/types').Role[] }
 const MAIN: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/evaluations', label: 'Task Evaluations', icon: ListChecks },
@@ -61,7 +61,7 @@ export default function Layout() {
         <div className="border-t border-line p-3 text-[12px] text-muted">
           <div className="font-medium text-ink">{me.full_name}</div>
           <div>{ROLE_LABEL[me.role]}</div>
-          {me.team_name && <div>{me.role === 'admin' ? 'Leads: ' : ''}{me.team_name}{me.role === 'user' && me.lead_name ? ` · Lead: ${me.lead_name}` : ''}</div>}
+          {me.team_name && <div>{me.role === 'admin' || me.role === 'manager' ? 'Leads: ' : ''}{me.team_name}{me.role === 'user' && me.lead_name ? ` · Lead: ${me.lead_name}` : ''}</div>}
           {isGoogle ? <div className="mt-2 text-faint">Signed in with Google · {me.email}</div>
             : <button onClick={() => signOut()} className="mt-2 inline-flex items-center gap-1.5 font-medium text-ink hover:text-brand"><LogOut className="h-4 w-4" />Sign out</button>}
         </div>

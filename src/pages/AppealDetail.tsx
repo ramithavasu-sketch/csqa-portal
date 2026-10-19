@@ -172,7 +172,8 @@ function EvidenceUpload({ appealId, onDone }: { appealId: string; onDone: () => 
 function ActionPanel({ d, onDone, role, meId, pname, pmax }: { d: AppealDetail; onDone: () => void; role: string; meId: string; pname: (i: AppealItem) => string; pmax: (i: AppealItem) => number }) {
   const a = d.appeal;
   const isCam = a.cam_id === meId;
-  const isLead = role === 'admin';
+  // a Team Manager reviews like a Lead only for a team they lead
+  const isLead = role === 'admin' || (role === 'manager' && a.lead_id === meId);
   const isQa = isQaRole(role);
   const awaitingMe = (a.status === 'returned_to_cam' && isCam) || (a.status === 'pending_additional_info' && ((a.info_requested_from === 'cam' && isCam) || (a.info_requested_from === 'lead' && isLead)));
   return (
