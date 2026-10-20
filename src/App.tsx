@@ -16,6 +16,7 @@ import { ParametersPage, NotificationsPage } from './pages/Misc';
 import { UsersPage, TeamsPage, ScoringPage, PeriodsPage, ImportPage, AuditLogPage } from './pages/Admin';
 import WeeklyEmailsPage from './pages/WeeklyEmails';
 import FeedbackSessionsPage from './pages/FeedbackSessions';
+import PortalFeedbackPage from './pages/PortalFeedback';
 import type { Role } from './lib/types';
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -86,6 +87,7 @@ export default function App() {
               <Route path="my-audits" element={<RequireRole roles={QA_STAFF}><MyAuditsPage /></RequireRole>} />
               <Route path="admin/import" element={<RequireRole roles={QA}><ImportPage /></RequireRole>} />
               <Route path="admin/audit" element={<RequireRole roles={QA}><AuditLogPage /></RequireRole>} />
+              <Route path="admin/feedback" element={<RequireRole roles={QA}><PortalFeedbackPage /></RequireRole>} />
               <Route path="*" element={<div className="p-8 text-center text-muted">Page not found.</div>} />
             </Route>
           </Routes>

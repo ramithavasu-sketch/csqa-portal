@@ -406,6 +406,17 @@ export class SupabaseRepo implements Repo {
     return fetchAll<import('../lib/types').FeedbackResponse>((a, b) => this.sb.from('feedback_responses').select('*').order('submitted_at', { ascending: false }).range(a, b));
   }
 
+  // ---------------------------------------------------------------- portal feedback
+  async submitFeedback(f: { kind: string; message: string; page: string; rating: number | null }) {
+    await this.rpc('submit_portal_feedback', { p_kind: f.kind, p_message: f.message, p_page: f.page, p_rating: f.rating });
+  }
+  async listFeedback() {
+    const { data, error } = await this.sb.rpc('list_portal_feedback');
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Awaited<ReturnType<import('./repo').Repo['listFeedback']>>;
+  }
+  async setFeedbackStatus(id: string, status: 'new' | 'done') { await this.rpc('set_portal_feedback_status', { p_id: id, p_status: status }); }
+
   // ---------------------------------------------------------------- notifications
   async listNotifications() {
     return unwrap(await this.sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(100)) as NotificationRow[];

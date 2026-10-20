@@ -7,6 +7,7 @@ import {
 import { useApp, useAsync } from '../app/context';
 import { repo, demoRepo, localRepo, isGoogle } from '../data';
 import { AutoSheetSync } from './SheetSync';
+import { FeedbackButton } from './FeedbackButton';
 import { fmtDateTime } from '../lib/metrics';
 
 const ROLE_LABEL = { super_admin: 'QA · Super Admin', evaluator: 'QA · Evaluator', manager: 'Team Manager', admin: 'Team Lead · Admin', user: 'CAM · User' } as const;
@@ -31,6 +32,7 @@ const ADMIN: NavItem[] = [
   { to: '/admin/emails', label: 'Weekly Report Emails', icon: Mail },
   { to: '/admin/import', label: 'Data Import', icon: Upload, roles: ['super_admin'] },
   { to: '/admin/audit', label: 'Audit Logs', icon: ScrollText, roles: ['super_admin'] },
+  { to: '/admin/feedback', label: 'Portal Feedback', icon: MessagesSquare, roles: ['super_admin'] },
 ];
 
 export default function Layout() {
@@ -78,6 +80,7 @@ export default function Layout() {
             <span className="font-semibold text-ink">{me.full_name}</span>
             <span className="hidden sm:inline"> · {ROLE_LABEL[me.role]}{me.team_name ? ` · ${me.team_name}` : ''}</span>
           </div>
+          <FeedbackButton />
           <NotificationBell key={dataVersion} />
         </header>
         <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-5 sm:px-6"><Outlet /></main>

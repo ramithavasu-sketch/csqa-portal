@@ -1332,6 +1332,16 @@ export class DemoRepo implements Repo {
   async updateFeedbackCycle(): Promise<void> { throw new Error('In the demo the booking deadline is fixed.'); }
   async listFeedbackResponses(): Promise<import('../lib/types').FeedbackResponse[]> { this.require(this.isQa(), 'Only QA can see feedback responses'); return []; }
 
+  // ------------------------------------------------------------------ portal feedback (demo: kept in memory)
+  private fbList: Awaited<ReturnType<import('./repo').Repo['listFeedback']>> = [];
+  async submitFeedback(f: { kind: string; message: string; page: string; rating: number | null }) {
+    const me = this.me();
+    this.require(f.message.trim().length >= 5, 'Write a few words about your feedback');
+    this.fbList.unshift({ id: uid(), created_at: nowIso(), kind: f.kind, rating: f.rating, message: f.message.trim(), page: f.page, status: 'new', sender_name: me.full_name, sender_email: me.email, sender_role: me.role });
+  }
+  async listFeedback() { this.requireSuper(); return this.fbList; }
+  async setFeedbackStatus(id: string, status: 'new' | 'done') { this.requireSuper(); const x = this.fbList.find((f) => f.id === id); if (x) x.status = status; }
+
   // ------------------------------------------------------------------ notifications
   async logExport(info: { scope: string; period: string; format: string }) {
     if (!this.meOrNull()) return;

@@ -118,6 +118,12 @@ export interface Repo {
   /** QA only: the feedback form answers. */
   listFeedbackResponses(): Promise<FeedbackResponse[]>;
 
+  // ---- portal feedback
+  submitFeedback(f: { kind: 'bug' | 'idea' | 'question' | 'other'; message: string; page: string; rating: number | null }): Promise<void>;
+  /** Super Admin only. */
+  listFeedback(): Promise<{ id: string; created_at: string; kind: string; rating: number | null; message: string; page: string | null; status: 'new' | 'done'; sender_name: string | null; sender_email: string | null; sender_role: string | null }[]>;
+  setFeedbackStatus(id: string, status: 'new' | 'done'): Promise<void>;
+
   // ---- notifications
   listNotifications(): Promise<NotificationRow[]>;
   markNotificationsRead(ids?: string[]): Promise<void>;
