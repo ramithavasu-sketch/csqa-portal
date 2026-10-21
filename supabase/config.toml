@@ -22,3 +22,6 @@ verify_jwt = false   # called by the sheet's Apps Script; checked with the SHEET
 verify_jwt = false   # 'Forgot password?' on the sign-in page (no login yet)
 [functions.send-email]
 verify_jwt = false
+
+[functions.setmore]
+verify_jwt = false
