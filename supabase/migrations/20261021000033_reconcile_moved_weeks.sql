@@ -1,6 +1,6 @@
 -- =============================================================================
--- Sheet clean-up: also remove leftover copies in a draft week that is no longer
--- in the sheet, when the same task + CAM is now under another week (a row whose
+-- Sheet clean-up: also remove leftover copies in a draft week that has no sheet
+-- rows with a task link any more, when the same task + CAM is now under another week (a row whose
 -- QA Week was corrected), then the empty week itself. Safe to run more than once.
 -- =============================================================================
 create or replace function public.reconcile_evaluations(p_weeks text[], p_keys jsonb)
@@ -45,12 +45,13 @@ begin
     end loop;
   end loop;
 
-  -- Draft weeks no longer in the sheet (e.g. a row typed as WK-43, then corrected to WK-42): an audit
+  -- Draft weeks with no sheet rows any more (e.g. a row typed as WK-43, then corrected to WK-42): an audit
   -- there whose task + CAM is now in the sheet under another week is a leftover copy and is removed;
   -- the week is removed once it is empty. Audits not found elsewhere in the sheet are left alone.
   select min(p.start_date) into v_from from public.reporting_periods p where p.label = any (p_weeks) and not p.is_demo;
   for w in select p.id, p.label from public.reporting_periods p
-            where v_from is not null and p.start_date >= v_from and p.status = 'draft' and not p.is_demo and not (p.label = any (p_weeks)) loop
+            where v_from is not null and p.start_date >= v_from and p.status = 'draft' and not p.is_demo
+              and not exists (select 1 from _keys k where k.week = p.label) loop   -- not in the sheet, or no rows with a task link
     for e in select ev.id, ev.task_link, c.email from public.evaluations ev join public.employees c on c.id = ev.cam_id
               where ev.period_id = w.id and not ev.is_demo
                 and exists (select 1 from _keys k where k.link = ev.task_link and k.cam = c.email and k.week <> w.label) loop
