@@ -134,7 +134,7 @@ function MySession({ s, weekNames }: { s: FeedbackSession; weekNames: string }) 
           <WeekBreakdown s={s} />
           <ConfirmModal open={removing} title="Cancel this booking?" confirmLabel="Cancel booking" danger onClose={() => setRemoving(false)}
             onConfirm={async () => { await repo.clearFeedbackBooking(s.id); setEditing(true); setTimeout(() => setWhen(''), 0); toast('Booking cancelled. Please book a new slot before the deadline.'); bump(); }}
-            body={<p>Your session on <strong>{fmtDateTime(s.booked_for)}</strong> will show as <strong>Cancelled</strong> for you, your Team Lead and QA, and in the Booked Sessions sheet. Please also cancel it in Setmore, then book a new slot.</p>} />
+            body={<p>Your session on <strong>{fmtDateTime(s.booked_for)}</strong> will show as <strong>Cancelled</strong> for you, your Team Lead and QA, and in the Booked Sessions sheet.{s.booking_source === 'setmore' ? ' Its Setmore appointment is labelled Cancelled automatically.' : ' Please also cancel it in Setmore.'} Then book a new slot.</p>} />
         </div>
       )}
     </Card>

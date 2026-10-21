@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "portal-demo", "runtimeExecutable": "sh", "runtimeArgs": ["-c", "VITE_DATA_MODE=demo npx vite --port 5180 --strictPort"], "port": 5180 }
+  ]
+}

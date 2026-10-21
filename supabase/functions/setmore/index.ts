@@ -55,6 +55,15 @@ Deno.serve(async (req) => {
     const rows = appts.filter((a) => a.service_key === serviceKey).map((a) => ({
       key: a.key, start: localTime(a.start_time), staff_email: staffEmail.get(a.staff_key) ?? '', customer_email: String(a.customer?.email_id ?? '').toLowerCase(), label: a.label ?? '' }));
 
+    // a session cancelled in the portal: label its Setmore appointment "Cancelled" (called by the database)
+    if (body.action === 'cancel_label' && byCron) {
+      const key = String((body as { key?: string }).key ?? '');
+      if (!/^[0-9a-f-]{36}$/i.test(key)) throw new HttpError(400, 'Missing appointment key');
+      const r = await fetch(`https://developer.setmore.com/api/v1/bookingapi/appointments/${key}/label?label=Cancelled`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
+      const rb = await r.json().catch(() => null);
+      return json({ ok: r.ok, status: r.status, msg: rb?.msg });
+    }
+
     if (body.action === 'preview') return json({ window: [from.toISOString(), to.toISOString()], all: appts.length, feedback_sessions: rows.length, rows });
 
     const res = await sb.rpc('apply_setmore_appointments', { p_rows: rows, p_from: from.toISOString() });
