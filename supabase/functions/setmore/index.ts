@@ -7,7 +7,7 @@
 // Called by the database (header x-cron = app_secrets.setmore_cron), or for a check
 // (header x-probe = settings.setmore.probe_nonce, body {"action":"preview"}).
 import { cors, json, serviceClient, HttpError } from '../_shared/auth.ts';
-import { setmoreGet, setmoreToken, smDate } from '../_shared/setmore.ts';
+import { setmoreClient, smDate } from '../_shared/setmore.ts';
 
 // Setmore returns the account's local time (India) with a 'Z' on the end: read it as local time.
 const TZ_OFFSET = Deno.env.get('SETMORE_TZ_OFFSET') ?? '+05:30';
@@ -45,15 +45,12 @@ Deno.serve(async (req) => {
     const serviceKey = /products=([0-9a-f-]{36})/i.exec(bookingUrl)?.[1];
     if (!serviceKey) throw new HttpError(422, 'The Setmore booking link in Feedback Sessions settings has no service key');
 
-    const token = await setmoreToken();
-    const staffs = await setmoreGet(token, '/bookingapi/staffs');
+    const sm = setmoreClient(sb);
+    const staffs = await sm.get('/bookingapi/staffs');
     const staffEmail = new Map<string, string>();
     for (const s of ((staffs.body?.data?.staffs ?? []) as { key: string; email_id?: string }[])) staffEmail.set(s.key, String(s.email_id ?? '').toLowerCase());
 
-    const send = async (method: string, path: string, payload?: unknown) => {
-      const r = await fetch(`https://developer.setmore.com/api/v1${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: payload ? JSON.stringify(payload) : undefined });
-      return { ok: r.ok, status: r.status, body: await r.json().catch(() => null) };
-    };
+    const send = sm.call;
     const setLabel = (key: string, label: string) => send('PUT', `/bookingapi/appointments/${key}/label?label=${encodeURIComponent(label)}`);
     const ist = (t: number) => new Date(t + 330 * 60000).toISOString().slice(0, 16) + 'Z';   // Setmore expects local (India) time
     const readAppointments = async (from: Date, to: Date) => {
@@ -61,7 +58,7 @@ Deno.serve(async (req) => {
       let cursor = '';
       for (let page = 0; page < 30; page++) {
         const q = `/bookingapi/appointments?startDate=${smDate(from)}&endDate=${smDate(to)}&customerDetails=true${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
-        const r = await setmoreGet(token, q);
+        const r = await sm.get(q);
         if (r.status !== 200) throw new HttpError(502, `Setmore appointments request failed (${r.status})`);
         const list = (r.body?.data?.appointments ?? []) as Appt[];
         all.push(...list);
@@ -72,7 +69,7 @@ Deno.serve(async (req) => {
         key: a.key, start: localTime(a.start_time), staff_email: staffEmail.get(a.staff_key) ?? '', customer_email: String(a.customer?.email_id ?? '').toLowerCase(), label: a.label ?? '' }));
     };
     const serviceMinutes = async () => {
-      const services = await setmoreGet(token, '/bookingapi/services');
+      const services = await sm.get('/bookingapi/services');
       return Number(((services.body?.data?.services ?? []) as { key: string; duration?: number }[]).find((x) => x.key === serviceKey)?.duration) || 60;
     };
     type Sess = { id: string; cam_id: string; status: string; booked_for: string | null; setmore_key: string | null; cam: { full_name: string; email: string }; provider: { email: string; full_name: string } | null; cycle: { released_at: string | null } };
@@ -115,7 +112,7 @@ Deno.serve(async (req) => {
       const want = Date.parse(`${date}T${time}:00+05:30`);
       const camEmail = sess.cam.email.toLowerCase();
       const [first, ...rest] = sess.cam.full_name.split(' ');
-      const found = await setmoreGet(token, `/bookingapi/customer?firstname=${encodeURIComponent(first)}&email=${encodeURIComponent(camEmail)}`);
+      const found = await sm.get(`/bookingapi/customer?firstname=${encodeURIComponent(first)}&email=${encodeURIComponent(camEmail)}`);
       let customerKey = ((found.body?.data?.customer ?? []) as { key: string; email_id?: string }[]).find((c) => String(c.email_id ?? '').toLowerCase() === camEmail)?.key;
       if (!customerKey) {
         const c = await send('POST', '/bookingapi/customer/create', { first_name: first, last_name: rest.join(' '), email_id: camEmail });
@@ -171,7 +168,7 @@ Deno.serve(async (req) => {
         const staffKey = [...staffEmail.entries()].find(([, e]) => e === provider)?.[0];
         if (!staffKey) return fail(`The QA provider (${provider || 'none'}) is not a staff member in Setmore`);
         const [first, ...rest] = sess.cam.full_name.split(' ');
-        const found = await setmoreGet(token, `/bookingapi/customer?firstname=${encodeURIComponent(first)}&email=${encodeURIComponent(camEmail)}`);
+        const found = await sm.get(`/bookingapi/customer?firstname=${encodeURIComponent(first)}&email=${encodeURIComponent(camEmail)}`);
         let customerKey = ((found.body?.data?.customer ?? []) as { key: string; email_id?: string }[]).find((c) => String(c.email_id ?? '').toLowerCase() === camEmail)?.key;
         if (!customerKey) {
           const c = await send('POST', '/bookingapi/customer/create', { first_name: first, last_name: rest.join(' '), email_id: camEmail });
