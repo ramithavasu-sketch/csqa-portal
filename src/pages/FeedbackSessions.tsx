@@ -118,7 +118,7 @@ function MySession({ s, weekNames }: { s: FeedbackSession; weekNames: string }) 
                 <li><strong>1.</strong> Book a slot with <strong>{s.provider_name ?? 'your QA provider'}</strong> in Setmore, and invite {s.lead_name ? <strong>{s.lead_name}</strong> : 'your Team Lead'}.
                   <div className="mt-2">{url ? <a href={url} target="_blank" rel="noreferrer"><Button type="button" variant={s.status === 'cancelled' ? 'secondary' : 'primary'}><ExternalLink className="h-4 w-4" />{s.status === 'cancelled' ? 'Rebook in Setmore' : 'Book in Setmore'}</Button></a>
                     : <span className="text-warn">QA has not added the booking link yet.</span>}</div></li>
-                <li><strong>2.</strong> Your Setmore booking shows here automatically within about 10 minutes. If it doesn't, enter the date and time yourself.
+                <li><strong>2.</strong> Your Setmore booking shows here automatically within about 5 minutes. Or enter the date and time here — it's booked in Setmore with your QA provider for you.
                   <div className="mt-2 flex flex-wrap items-end gap-2">
                     <input aria-label="Booked date and time" type="datetime-local" className={inputBase + ' w-auto'} value={when} onChange={(e) => setWhen(e.target.value)} />
                     <Button variant="secondary" loading={busy} disabled={!when} onClick={save}><CalendarCheck className="h-4 w-4" />{s.status === 'cancelled' ? 'Save my new booking' : 'Save my booking'}</Button>
@@ -134,7 +134,7 @@ function MySession({ s, weekNames }: { s: FeedbackSession; weekNames: string }) 
           <WeekBreakdown s={s} />
           <ConfirmModal open={removing} title="Cancel this booking?" confirmLabel="Cancel booking" danger onClose={() => setRemoving(false)}
             onConfirm={async () => { await repo.clearFeedbackBooking(s.id); setEditing(true); setTimeout(() => setWhen(''), 0); toast('Booking cancelled. Please book a new slot before the deadline.'); bump(); }}
-            body={<p>Your session on <strong>{fmtDateTime(s.booked_for)}</strong> will show as <strong>Cancelled</strong> for you, your Team Lead and QA, and in the Booked Sessions sheet.{s.booking_source === 'setmore' ? ' Its Setmore appointment is labelled Cancelled automatically.' : ' Please also cancel it in Setmore.'} Then book a new slot.</p>} />
+            body={<p>Your session on <strong>{fmtDateTime(s.booked_for)}</strong> will show as <strong>Cancelled</strong> for you, your Team Lead and QA, and in the Booked Sessions sheet. Its Setmore appointment is labelled Cancelled automatically. Then book a new slot.</p>} />
         </div>
       )}
     </Card>

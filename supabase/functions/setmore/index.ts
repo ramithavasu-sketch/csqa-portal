@@ -1,6 +1,11 @@
-// Setmore → portal: feedback-session bookings. Read-only towards Setmore.
-// Called every 10 minutes by the database scheduler (header x-cron = app_secrets.setmore_cron),
-// or for a check (header x-probe = settings.setmore.probe_nonce, body {"action":"preview"}).
+// Two-way sync of feedback-session bookings with Setmore.
+//   sync          Setmore → portal, every 5 minutes (database scheduler)
+//   push_booking  portal → Setmore: a time entered or changed in the portal becomes a Setmore
+//                 appointment (Setmore's API can't move one, so a change books the new slot and
+//                 labels the old one "Cancelled")
+//   set_label     portal → Setmore: cancelled in the portal → "Cancelled", completed → "Complete"
+// Called by the database (header x-cron = app_secrets.setmore_cron), or for a check
+// (header x-probe = settings.setmore.probe_nonce, body {"action":"preview"}).
 import { json, serviceClient, HttpError } from '../_shared/auth.ts';
 import { setmoreGet, setmoreToken, smDate } from '../_shared/setmore.ts';
 
@@ -55,13 +60,58 @@ Deno.serve(async (req) => {
     const rows = appts.filter((a) => a.service_key === serviceKey).map((a) => ({
       key: a.key, start: localTime(a.start_time), staff_email: staffEmail.get(a.staff_key) ?? '', customer_email: String(a.customer?.email_id ?? '').toLowerCase(), label: a.label ?? '' }));
 
-    // a session cancelled in the portal: label its Setmore appointment "Cancelled" (called by the database)
-    if (body.action === 'cancel_label' && byCron) {
-      const key = String((body as { key?: string }).key ?? '');
-      if (!/^[0-9a-f-]{36}$/i.test(key)) throw new HttpError(400, 'Missing appointment key');
-      const r = await fetch(`https://developer.setmore.com/api/v1/bookingapi/appointments/${key}/label?label=Cancelled`, { method: 'PUT', headers: { Authorization: `Bearer ${token}` } });
-      const rb = await r.json().catch(() => null);
-      return json({ ok: r.ok, status: r.status, msg: rb?.msg });
+    const send = async (method: string, path: string, payload?: unknown) => {
+      const r = await fetch(`https://developer.setmore.com/api/v1${path}`, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: payload ? JSON.stringify(payload) : undefined });
+      return { ok: r.ok, status: r.status, body: await r.json().catch(() => null) };
+    };
+    const setLabel = (key: string, label: string) => send('PUT', `/bookingapi/appointments/${key}/label?label=${encodeURIComponent(label)}`);
+
+    if (body.action === 'set_label' && byCron) {
+      const { key, label } = body as { key?: string; label?: string };
+      if (!/^[0-9a-f-]{36}$/i.test(String(key)) || !['Cancelled', 'Complete'].includes(String(label))) throw new HttpError(400, 'Bad label request');
+      const r = await setLabel(String(key), String(label));
+      return json({ ok: r.ok, status: r.status, msg: r.body?.msg });
+    }
+
+    if (body.action === 'push_booking' && byCron) {
+      const id = String((body as { session?: string }).session ?? '');
+      const { data: ss } = await sb.from('feedback_sessions').select('id, status, booked_for, setmore_key, cam:cam_id(full_name, email), provider:provider_id(email), cycle:cycle_id(released_at)').eq('id', id).maybeSingle();
+      const sess = ss as unknown as { id: string; status: string; booked_for: string | null; setmore_key: string | null; cam: { full_name: string; email: string }; provider: { email: string } | null; cycle: { released_at: string } } | null;
+      if (!sess || sess.status !== 'booked' || !sess.booked_for) return json({ ok: true, skipped: 'not booked' });
+      const camEmail = sess.cam.email.toLowerCase();
+      const want = Date.parse(sess.booked_for);
+      const mine = rows.filter((r) => r.customer_email === camEmail && Date.parse(r.start) >= Date.parse(sess.cycle.released_at) - 86400000 && !/cancel|no.?show/i.test(r.label));
+      const fail = async (why: string) => {
+        await sb.from('settings').update({ value: { ...(st?.value as object ?? {}), last_push_error: { at: new Date().toISOString(), cam: camEmail, error: why } } }).eq('key', 'setmore');
+        return json({ ok: false, error: why });
+      };
+      let key = mine.find((r) => Date.parse(r.start) === want)?.key;
+      let staffMail = mine.find((r) => r.key === key)?.staff_email;
+      if (!key) {
+        const provider = String(sess.provider?.email ?? '').toLowerCase();
+        const staffKey = [...staffEmail.entries()].find(([, e]) => e === provider)?.[0];
+        if (!staffKey) return fail(`The QA provider (${provider || 'none'}) is not a staff member in Setmore`);
+        const [first, ...rest] = sess.cam.full_name.split(' ');
+        const found = await setmoreGet(token, `/bookingapi/customer?firstname=${encodeURIComponent(first)}&email=${encodeURIComponent(camEmail)}`);
+        let customerKey = ((found.body?.data?.customer ?? []) as { key: string; email_id?: string }[]).find((c) => String(c.email_id ?? '').toLowerCase() === camEmail)?.key;
+        if (!customerKey) {
+          const c = await send('POST', '/bookingapi/customer/create', { first_name: first, last_name: rest.join(' '), email_id: camEmail });
+          customerKey = c.body?.data?.customer?.key;
+          if (!customerKey) return fail(`Couldn't add ${camEmail} as a Setmore customer (${c.status})`);
+        }
+        const services = await setmoreGet(token, '/bookingapi/services');
+        const mins = Number(((services.body?.data?.services ?? []) as { key: string; duration?: number }[]).find((x) => x.key === serviceKey)?.duration) || 60;
+        const ist = (t: number) => new Date(t + 330 * 60000).toISOString().slice(0, 16) + 'Z';   // Setmore expects local (India) time
+        const ap = await send('POST', '/bookingapi/appointment/create', { staff_key: staffKey, service_key: serviceKey, customer_key: customerKey,
+          start_time: ist(want), end_time: ist(want + mins * 60000), cost: 0, comment: 'Booked from the CS QA portal' });
+        key = ap.body?.data?.appointment?.key;
+        if (!key) return fail(`Setmore didn't create the appointment (${ap.status}: ${ap.body?.msg ?? ''})`);
+        staffMail = provider;
+      }
+      // the CAM's other appointments for this cycle (the old time) are labelled Cancelled
+      for (const r of mine) if (r.key !== key) await setLabel(r.key, 'Cancelled');
+      await sb.from('feedback_sessions').update({ setmore_key: key, booked_with_email: staffMail ?? null }).eq('id', sess.id);
+      return json({ ok: true, key, replaced: mine.filter((r) => r.key !== key).length });
     }
 
     if (body.action === 'preview') return json({ window: [from.toISOString(), to.toISOString()], all: appts.length, feedback_sessions: rows.length, rows });
