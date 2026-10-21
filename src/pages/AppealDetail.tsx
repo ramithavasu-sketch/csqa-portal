@@ -9,6 +9,7 @@ import { PageHeader } from '../components/Layout';
 import { Button, Card, ConfirmModal, EmptyState, ErrorBox, Field, Loading, Pill, ScoreBadge, StatusBadge, Table, td, th, inputCls, inputBase, textareaCls, useToast } from '../components/ui';
 import { isQaRole, APPEAL_STATUS_LABEL, RECOMMENDATION_LABEL, fmtDate, fmtDateTime, fmtPct } from '../lib/metrics';
 import type { AppealDetail, AppealItem, LeadRecommendation } from '../lib/types';
+import { Select } from '../components/Select';
 
 const ACTION_LABEL: Record<string, string> = {
   draft_saved: 'Saved as draft', submitted: 'Submitted to Team Lead', lead_forwarded: 'Forwarded to QA', lead_returned: 'Returned to CAM for clarification',
@@ -318,7 +319,7 @@ function QaDecisionCard({ d, onDone, pname, pmax }: { d: AppealDetail; onDone: (
           <Button size="sm" variant={mode === 'info' ? 'primary' : 'secondary'} onClick={() => setMode('info')}>Request information</Button>
         </div>
         {mode === 'info' ? (<>
-          <Field label="Request from" htmlFor="info-from"><select id="info-from" className={inputCls} value={infoFrom} onChange={(x) => setInfoFrom(x.target.value as 'cam' | 'lead')}><option value="cam">CAM</option><option value="lead">Team Lead</option></select></Field>
+          <Field label="Request from" htmlFor="info-from"><Select id="info-from" className={inputCls} value={infoFrom} onChange={(x) => setInfoFrom(x.target.value as 'cam' | 'lead')}><option value="cam">CAM</option><option value="lead">Team Lead</option></Select></Field>
           <Field label="What information is needed?" htmlFor="info-text" required><textarea id="info-text" rows={3} className={textareaCls} value={infoText} onChange={(x) => setInfoText(x.target.value)} /></Field>
           <ErrorBox error={err} />
           <Button loading={busy} onClick={async () => { setBusy(true); setErr(null); try { await repo.qaRequestInfo(d.appeal.id, infoFrom, infoText); toast('Information requested.'); onDone(); } catch (x) { setErr(x); } finally { setBusy(false); } }}>Send request</Button>

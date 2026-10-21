@@ -3,9 +3,10 @@ import { CalendarCheck, ExternalLink, RefreshCw } from 'lucide-react';
 import { useApp, useAsync, useRef_ } from '../app/context';
 import { repo } from '../data';
 import { PageHeader } from '../components/Layout';
-import { Button, Card, ConfirmModal, EmptyState, ErrorBox, Field, Kpi, Loading, Modal, Pill, Table, td, th, inputBase, inputCls, useToast } from '../components/ui';
+import { Button, Card, ConfirmModal, Tabs, EmptyState, ErrorBox, Field, Kpi, Loading, Modal, Pill, Table, td, th, inputBase, inputCls, useToast } from '../components/ui';
 import { fmtDate, fmtDateTime, isQaRole } from '../lib/metrics';
 import type { FeedbackSession, FeedbackStatus } from '../lib/types';
+import { Select } from '../components/Select';
 
 const STATUS: Record<FeedbackStatus, { label: string; tone: 'neutral' | 'good' | 'warn' | 'bad' | 'info' }> = {
   not_booked: { label: 'Not booked', tone: 'warn' },
@@ -38,21 +39,14 @@ export default function FeedbackSessionsPage() {
         subtitle="Every 3 audit weeks each CAM books a feedback session with the QA team member who audited them most. Their Team Lead joins the session."
         actions={(cycles.data?.length ?? 0) > 0 && <div className="flex items-center gap-2">
           <label htmlFor="fb-cycle" className="text-[13px] text-muted">Cycle</label>
-          <select id="fb-cycle" className={inputBase + ' w-auto'} value={current} onChange={(e) => setCycleId(e.target.value)}>
+          <Select id="fb-cycle" className={inputBase + ' w-auto'} value={current} onChange={(e) => setCycleId(e.target.value)}>
             {cycles.data!.map((c) => <option key={c.id} value={c.id}>Session {c.number}{c.released_at ? '' : ' (not visible to CAMs yet)'}</option>)}
-          </select></div>} />
+          </Select></div>} />
       <ErrorBox error={cycles.error ?? sessions.error} />
       {cycles.loading ? <Loading /> : !cycle ? (
         <EmptyState title="No feedback cycle yet" body={qa ? 'A cycle is created automatically when its last audit week is published, or start one below.' : 'Your next feedback session will show here once the audit weeks are published.'} />
       ) : (<>
-        {qa && (
-          <div className="flex gap-1 border-b border-line">
-            {(['sessions', 'responses'] as const).map((t) => (
-              <button key={t} onClick={() => setTab(t)} className={'px-3 py-2 text-[13.5px] font-medium ' + (tab === t ? 'border-b-2 border-brand text-brand' : 'text-muted hover:text-ink')}>
-                {t === 'sessions' ? 'Sessions' : 'Form responses'}</button>
-            ))}
-          </div>
-        )}
+        {qa && <Tabs value={tab} onChange={setTab} tabs={[{ value: 'sessions', label: 'Sessions' }, { value: 'responses', label: 'Form responses' }]} />}
         {tab === 'responses' && qa ? <ResponsesView /> : sessions.loading ? <Loading /> : (<>
           {mine.map((s) => <MySession key={s.id} s={s} weekNames={weekNames} />)}
           {qa ? <QaView cycle={cycle} weekNames={weekNames} list={list} />
@@ -234,10 +228,10 @@ function QaView({ cycle, weekNames, list }: { cycle: { id: string; number: numbe
       </div>}>
       <div className="flex flex-wrap gap-2 border-b border-line px-4 py-3">
         <input aria-label="Search CAM or Lead" placeholder="Search CAM or Lead" className={inputBase + ' w-56'} value={q} onChange={(e) => setQ(e.target.value)} />
-        <select aria-label="Status" className={inputBase + ' w-auto'} value={st} onChange={(e) => setSt(e.target.value as FeedbackStatus | '')}>
-          <option value="">All statuses</option>{(Object.keys(STATUS) as FeedbackStatus[]).map((k) => <option key={k} value={k}>{STATUS[k].label}</option>)}</select>
-        <select aria-label="Provider" className={inputBase + ' w-auto'} value={prov} onChange={(e) => setProv(e.target.value)}>
-          <option value="">All providers</option>{providers.map((p) => <option key={p}>{p}</option>)}</select>
+        <Select aria-label="Status" className={inputBase + ' w-auto'} value={st} onChange={(e) => setSt(e.target.value as FeedbackStatus | '')}>
+          <option value="">All statuses</option>{(Object.keys(STATUS) as FeedbackStatus[]).map((k) => <option key={k} value={k}>{STATUS[k].label}</option>)}</Select>
+        <Select people aria-label="Provider" className={inputBase + ' w-auto'} value={prov} onChange={(e) => setProv(e.target.value)}>
+          <option value="">All providers</option>{providers.map((p) => <option key={p}>{p}</option>)}</Select>
         <span className="self-center text-[12.5px] text-muted">{shown.length} of {list.length}</span>
       </div>
       <Table>
@@ -248,19 +242,19 @@ function QaView({ cycle, weekNames, list }: { cycle: { id: string; number: numbe
             <td className={td}><div className="font-medium">{s.cam_name}</div><div className="text-[12px] text-muted">{s.cam_email}</div></td>
             {cycle.period_ids.map((id) => { const w = s.weeks.find((x) => x.period_id === id); return <td key={id} className={td + ' text-[12.5px]'}>{w?.audits ? <>{(w.evaluator ?? '?').split(' ')[0]} <span className="text-muted">({w.audits})</span></> : <span className="text-muted">No audit</span>}</td>; })}
             <td className={td}>
-              <select aria-label={`Provider for ${s.cam_name}`} className={inputBase + ' w-auto text-[13px]'} value={s.provider_id ?? ''} disabled={busy === s.id}
+              <Select people aria-label={`Provider for ${s.cam_name}`} className={inputBase + ' w-auto text-[13px]'} value={s.provider_id ?? ''} disabled={busy === s.id}
                 onChange={(e) => e.target.value && run(s.id, () => repo.updateFeedbackSession(s.id, { providerId: e.target.value }), `Provider for ${s.cam_name} changed.`)}>
                 <option value="">{s.provider_name ?? '— choose —'}</option>
                 {qaPeople.map((p) => <option key={p.id} value={p.id}>{p.full_name}{p.id === me!.id ? ' (you)' : ''}</option>)}
-              </select>
+              </Select>
               {!s.provider_auto && <div className="text-[11px] text-muted">Changed by QA</div>}
             </td>
             <td className={td}>{s.lead_name ?? <span className="text-warn">No Lead</span>}</td>
             <td className={td}>
-              <select aria-label={`Status for ${s.cam_name}`} className={inputBase + ' w-auto text-[13px]'} value={s.status} disabled={busy === s.id}
+              <Select aria-label={`Status for ${s.cam_name}`} className={inputBase + ' w-auto text-[13px]'} value={s.status} disabled={busy === s.id}
                 onChange={(e) => run(s.id, () => repo.updateFeedbackSession(s.id, { status: e.target.value as FeedbackStatus }), `Status for ${s.cam_name} updated.`)}>
                 {(Object.keys(STATUS) as FeedbackStatus[]).map((k) => <option key={k} value={k}>{STATUS[k].label}</option>)}
-              </select>
+              </Select>
               {overdue(s) && <div className="text-[11.5px] text-bad">Overdue</div>}
             </td>
             <td className={td + ' whitespace-nowrap'}>{s.booked_for ? fmtDateTime(s.booked_for) : '—'}{s.booking_source && <div className="text-[11px] text-muted">{{ sheet: 'From Setmore', setmore: 'From Setmore', portal: 'Booked in portal', cam: 'Entered by CAM', qa: 'Entered by QA' }[s.booking_source]}{s.booked_with_name && s.booked_with_name !== s.provider_name ? <span className="text-warn"> · booked with {s.booked_with_name}</span> : null}</div>}</td>
@@ -293,8 +287,8 @@ function ResponsesView() {
       <Card title="Feedback form responses" subtitle="Visible to the QA team only." pad={false}>
         <div className="flex flex-wrap gap-2 border-b border-line px-4 py-3">
           <input aria-label="Search responses" placeholder="Search CAM or comment" className={inputBase + ' w-60'} value={q} onChange={(e) => setQ(e.target.value)} />
-          <select aria-label="Provider" className={inputBase + ' w-auto'} value={prov} onChange={(e) => setProv(e.target.value)}>
-            <option value="">All providers</option>{providers.map((p) => <option key={p}>{p}</option>)}</select>
+          <Select people aria-label="Provider" className={inputBase + ' w-auto'} value={prov} onChange={(e) => setProv(e.target.value)}>
+            <option value="">All providers</option>{providers.map((p) => <option key={p}>{p}</option>)}</Select>
         </div>
         <Table>
           <thead><tr><th className={th}>Submitted</th><th className={th}>CAM</th><th className={th}>Provider</th><th className={th}>Lead present</th><th className={th}>Agrees</th><th className={th}>Feedback for the provider</th><th className={th}>QA feedback</th></tr></thead>

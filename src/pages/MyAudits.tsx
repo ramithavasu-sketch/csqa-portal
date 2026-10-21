@@ -8,6 +8,7 @@ import { Card, EmptyState, ErrorBox, Kpi, Loading, ScoreBadge, StatusBadge, Tabl
 import { EvaluationsTable } from '../components/shared';
 import { fmtDate, fmtPct, isResolvedAppeal, summarize, variance } from '../lib/metrics';
 import type { Evaluation } from '../lib/types';
+import { Select } from '../components/Select';
 
 /** Audits a QA evaluator performed: volume, scores given, and how their audits fared on appeal. */
 export default function MyAuditsPage() {
@@ -38,10 +39,10 @@ export default function MyAuditsPage() {
       <PageHeader title={whoName} subtitle={<>Tasks audited by {who === myEmail ? 'you' : 'this evaluator'} (matched by the evaluator email on the audit form) · Showing <strong>{sel.label}</strong></>}
         actions={<>
           {isSuper && evaluators.length > 0 && (
-            <select aria-label="Evaluator" className={inputBase + ' w-auto max-w-[240px]'} value={who} onChange={(e) => setWho(e.target.value)}>
+            <Select people aria-label="Evaluator" className={inputBase + ' w-auto max-w-[240px]'} value={who} onChange={(e) => setWho(e.target.value)}>
               <option value={myEmail}>My audits</option>
               {evaluators.filter(([e]) => e !== myEmail).map(([e, n]) => <option key={e} value={e}>{n}</option>)}
-            </select>
+            </Select>
           )}
           <PeriodPicker sel={sel} onChange={setSel} periods={periods} />
         </>} />

@@ -4,6 +4,7 @@ import { buildSelection, fmtRange, monthLabel, monthOptions, quarterOptions, typ
 import { inputBase } from './ui';
 import { useRef_ } from '../app/context';
 import type { Period } from '../lib/types';
+import { Select } from './Select';
 
 /** Period selection lives in the URL (?mode=week&period=<id>) so views are linkable. */
 export function usePeriodSelection(includeDrafts = false): [PeriodSelection, (mode: PeriodMode, anchor?: string) => void, Period[]] {
@@ -30,29 +31,29 @@ export function PeriodPicker({ sel, onChange, periods, showVs = false }: { sel: 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <label className="sr-only" htmlFor="period-mode">Reporting period type</label>
-      <select id="period-mode" className={inputBase + ' w-auto'} value={sel.mode} onChange={(e) => onChange(e.target.value as PeriodMode)}>
+      <Select id="period-mode" className={inputBase + ' w-auto'} value={sel.mode} onChange={(e) => onChange(e.target.value as PeriodMode)}>
         <option value="week">Week</option>
         <option value="month">Month</option>
         <option value="quarter">Quarter</option>
         <option value="custom">Custom range</option>
-      </select>
+      </Select>
       {sel.mode === 'week' && (
         <>
           <label className="sr-only" htmlFor="period-week">Audit week</label>
-          <select id="period-week" className={inputBase + ' w-auto max-w-[260px]'} value={sel.anchor} onChange={(e) => onChange('week', e.target.value)}>
+          <Select id="period-week" className={inputBase + ' w-auto max-w-[260px]'} value={sel.anchor} onChange={(e) => onChange('week', e.target.value)}>
             {sorted.map((p) => <option key={p.id} value={p.id}>{p.short_label} · {fmtRange(p.start_date, p.end_date)}{p.status === 'draft' ? ' (draft)' : ''}</option>)}
-          </select>
+          </Select>
         </>
       )}
       {sel.mode === 'month' && (
-        <select aria-label="Month" id="period-month" className={inputBase + ' w-auto'} value={sel.anchor} onChange={(e) => onChange('month', e.target.value)}>
+        <Select aria-label="Month" id="period-month" className={inputBase + ' w-auto'} value={sel.anchor} onChange={(e) => onChange('month', e.target.value)}>
           {monthOptions(periods).map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
-        </select>
+        </Select>
       )}
       {sel.mode === 'quarter' && (
-        <select aria-label="Quarter" id="period-quarter" className={inputBase + ' w-auto'} value={sel.anchor} onChange={(e) => onChange('quarter', e.target.value)}>
+        <Select aria-label="Quarter" id="period-quarter" className={inputBase + ' w-auto'} value={sel.anchor} onChange={(e) => onChange('quarter', e.target.value)}>
           {quarterOptions(periods).map((q) => <option key={q} value={q}>{q.replace('-', ' ')}</option>)}
-        </select>
+        </Select>
       )}
       {sel.mode === 'custom' && (
         <>

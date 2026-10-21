@@ -10,6 +10,7 @@ import { Button, Card, EmptyState, ErrorBox, Loading, inputBase } from '../compo
 import { InsightsPanel, ParameterAnalysis } from '../components/shared';
 import { CamDeepDive, WeekCompare } from '../components/ParameterDeepDive';
 import { isQaRole, isReportee, buildInsights, fmtDateTime, METRIC_DEFINITIONS } from '../lib/metrics';
+import { Select } from '../components/Select';
 
 export function ParametersPage() {
   const { me } = useApp();
@@ -25,7 +26,7 @@ export function ParametersPage() {
     <div className="flex flex-col gap-5">
       <PageHeader title="Parameter-Level Performance Analysis" subtitle="Results for the selected week only. Choose a CAM for a deep dive into that week; use Compare weeks at the bottom to compare weeks."
         actions={<>
-          {me!.role !== 'user' && <><label htmlFor="pa-cam" className="sr-only">CAM</label><select id="pa-cam" className={inputBase + ' w-auto'} value={cam} onChange={(e) => setCam(e.target.value)}><option value="">{me!.role === 'admin' ? 'Whole team' : 'All CAMs'}</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></>}
+          {me!.role !== 'user' && <><label htmlFor="pa-cam" className="sr-only">CAM</label><Select people id="pa-cam" className={inputBase + ' w-auto'} value={cam} onChange={(e) => setCam(e.target.value)}><option value="">{me!.role === 'admin' ? 'Whole team' : 'All CAMs'}</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</Select></>}
           <PeriodPicker sel={sel} onChange={setSel} periods={periods} showVs={false} />
         </>} />
       <div className="flex flex-wrap items-center gap-2 text-[13px]">
@@ -60,7 +61,7 @@ export function NotificationsPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="Notifications" subtitle="Weekly report releases, appeal updates and score changes."
-        actions={<><select aria-label="Filter" className={inputBase + ' w-auto'} value={filter} onChange={(e) => setFilter(e.target.value as 'all' | 'unread')}><option value="all">All</option><option value="unread">Unread</option></select>
+        actions={<><Select aria-label="Filter" className={inputBase + ' w-auto'} value={filter} onChange={(e) => setFilter(e.target.value as 'all' | 'unread')}><option value="all">All</option><option value="unread">Unread</option></Select>
           <Button variant="secondary" onClick={async () => { await repo.markNotificationsRead(); bump(); }}>Mark all as read</Button></>} />
       {n.loading ? <Loading /> : list.length === 0 ? <EmptyState title="You’re all caught up" /> : (
         <Card pad={false}>

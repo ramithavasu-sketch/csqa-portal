@@ -11,6 +11,7 @@ import { appealDeadlineOf, fmtDateTime, fmtRange } from '../lib/metrics';
 import { mapAuditRows, headerKey, DEFAULT_COLUMN_MAP, REQUIRED_KEYS, formatWeekLabel, type ColumnMap, type MapperResult } from '../../supabase/functions/_shared/mapper';
 import { saveBlob } from '../lib/report';
 import type { Employee, Parameter, Period, PortalSettings, Role, Team, TeamMappingRow, TeamMappingResult } from '../lib/types';
+import { Select } from '../components/Select';
 
 const NOTIFICATION_TYPES: [string, string][] = [
   ['report_published', 'Weekly report published'], ['appeal_submitted', 'Appeal submitted / CAM responded'], ['appeal_forwarded', 'Appeal forwarded to QA'],
@@ -48,8 +49,8 @@ export function UsersPage() {
         </>} />
       <div className="flex flex-wrap gap-3">
         <input aria-label="Search" className={inputBase + ' w-64'} placeholder="Search name or email" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
-        <select aria-label="Role" className={inputBase + ' w-auto'} value={role} onChange={(e) => setRole(e.target.value)}><option value="">All roles</option>{(Object.keys(ROLE_NAME) as Role[]).map((r) => <option key={r} value={r}>{ROLE_NAME[r]}</option>)}</select>
-        <select aria-label="Status" className={inputBase + ' w-auto'} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Any status</option><option value="active">Active</option><option value="inactive">Deactivated</option></select>
+        <Select aria-label="Role" className={inputBase + ' w-auto'} value={role} onChange={(e) => setRole(e.target.value)}><option value="">All roles</option>{(Object.keys(ROLE_NAME) as Role[]).map((r) => <option key={r} value={r}>{ROLE_NAME[r]}</option>)}</Select>
+        <Select aria-label="Status" className={inputBase + ' w-auto'} value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Any status</option><option value="active">Active</option><option value="inactive">Deactivated</option></Select>
       </div>
       <Card pad={false}>
         <Table>
@@ -190,11 +191,11 @@ function HistoricalNames() {
                 <td className={td + ' text-right tnum'}>{r.tasks}</td>
                 <td className={td + ' whitespace-nowrap text-muted'}>{r.first_week ?? '—'} → {r.last_week ?? '—'}</td>
                 <td className={td}>
-                  <select aria-label={`Link ${r.name}`} className={inputBase + ' w-auto max-w-[260px]'} value={sel} onChange={(e) => setPick({ ...pick, [r.id]: e.target.value })}>
+                  <Select people aria-label={`Link ${r.name}`} className={inputBase + ' w-auto max-w-[260px]'} value={sel} onChange={(e) => setPick({ ...pick, [r.id]: e.target.value })}>
                     <option value="">Keep as history only</option>
                     {r.candidates.length > 0 && <optgroup label="Suggested">{r.candidates.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.email}</option>)}</optgroup>}
                     <optgroup label="All CAMs">{cams.map((c) => <option key={c.id} value={c.id}>{c.full_name} · {c.email}</option>)}</optgroup>
-                  </select>
+                  </Select>
                   {r.candidates.length === 1 && !pick[r.id] && <div className="text-[11.5px] text-muted">Suggested match</div>}
                 </td>
                 <td className={td}><Button size="sm" variant="secondary" disabled={!sel} onClick={() => setConfirm({ id: r.id, name: r.name, into: sel })}>Link</Button></td>
@@ -223,8 +224,8 @@ function UserModal({ value, teams, isSelf, ledTeams, onClose, onSaved }: { value
         <Field label="Full name" htmlFor="u-name" required><input id="u-name" className={inputCls} value={v.full_name ?? ''} onChange={(e) => setV({ ...v, full_name: e.target.value })} /></Field>
         <Field label="Company email" htmlFor="u-email" required hint="Must match the CAM Name email used in the audit sheet."><input id="u-email" type="email" className={inputCls} value={v.email ?? ''} onChange={(e) => setV({ ...v, email: e.target.value })} /></Field>
         <Field label="Role" htmlFor="u-role" hint={isSelf ? 'You cannot change your own role. Ask another Super Admin.' : v.role === 'manager' ? 'Sees every team’s published results, dashboards, appeals and reports (view only). Can also lead a team under Teams.' : v.role === 'admin' ? (ledTeams.length ? `Leads: ${ledTeams.join(', ')}. Change team leadership under Teams.` : 'Assign the teams this Lead manages under Teams.') : undefined}>
-          <select id="u-role" className={inputCls} disabled={isSelf} value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as Role })}>{(Object.keys(ROLE_NAME) as Role[]).map((r) => <option key={r} value={r}>{ROLE_NAME[r]}</option>)}</select></Field>
-        {v.role !== 'super_admin' && v.role !== 'evaluator' && <Field label={v.role === 'admin' || v.role === 'manager' ? 'Member of team (optional)' : 'Team'} htmlFor="u-team" hint={v.role === 'admin' ? 'For a Lead who reports to a manager, e.g. the Senior Manager’s team. Their appeals go to that team’s Lead.' : 'Appeals are routed to this team’s Lead.'}><select id="u-team" className={inputCls} value={v.team_id ?? ''} onChange={(e) => setV({ ...v, team_id: e.target.value || null })}><option value="">No team</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>}
+          <Select id="u-role" className={inputCls} disabled={isSelf} value={v.role} onChange={(e) => setV({ ...v, role: e.target.value as Role })}>{(Object.keys(ROLE_NAME) as Role[]).map((r) => <option key={r} value={r}>{ROLE_NAME[r]}</option>)}</Select></Field>
+        {v.role !== 'super_admin' && v.role !== 'evaluator' && <Field label={v.role === 'admin' || v.role === 'manager' ? 'Member of team (optional)' : 'Team'} htmlFor="u-team" hint={v.role === 'admin' ? 'For a Lead who reports to a manager, e.g. the Senior Manager’s team. Their appeals go to that team’s Lead.' : 'Appeals are routed to this team’s Lead.'}><Select id="u-team" className={inputCls} value={v.team_id ?? ''} onChange={(e) => setV({ ...v, team_id: e.target.value || null })}><option value="">No team</option>{teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</Select></Field>}
         <ErrorBox error={err} />
       </div>
     </Modal>
@@ -256,12 +257,12 @@ export function TeamsPage() {
               {members.length === 0 ? <p className="text-[13px] text-muted">No CAMs yet.</p> : (
                 <ul className="flex flex-col gap-1.5">{members.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-2 text-[13px]"><span>{c.full_name}</span>
-                    <select aria-label={`Move ${c.full_name}`} className={inputBase + ' h-8 w-auto text-[12.5px]'} value={t.id} onChange={(e) => move(c, e.target.value)}>
-                      {ref.teams.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}<option value="">Remove from team</option></select></li>
+                    <Select aria-label={`Move ${c.full_name}`} className={inputBase + ' h-8 w-auto text-[12.5px]'} value={t.id} onChange={(e) => move(c, e.target.value)}>
+                      {ref.teams.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}<option value="">Remove from team</option></Select></li>
                 ))}</ul>
               )}
-              {unassigned.length > 0 && <select aria-label="Add CAM" className={inputCls + ' mt-3'} value="" onChange={(e) => { const c = cams.find((x) => x.id === e.target.value); if (c) move(c, t.id); }}>
-                <option value="">+ Add an unassigned CAM</option>{unassigned.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select>}
+              {unassigned.length > 0 && <Select people aria-label="Add CAM" className={inputCls + ' mt-3'} value="" onChange={(e) => { const c = cams.find((x) => x.id === e.target.value); if (c) move(c, t.id); }}>
+                <option value="">+ Add an unassigned CAM</option>{unassigned.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</Select>}
             </Card>
           );
         })}
@@ -327,7 +328,7 @@ function TeamModal({ value, leads, onClose, onSaved }: { value: Partial<Team>; l
       <Button loading={busy} onClick={async () => { setBusy(true); setErr(null); try { await repo.upsertTeam(v as Team); onSaved(); } catch (x) { setErr(x); } finally { setBusy(false); } }}>Save</Button></>}>
       <div className="flex flex-col gap-3">
         <Field label="Team name" htmlFor="t-name" required><input id="t-name" className={inputCls} value={v.name ?? ''} onChange={(e) => setV({ ...v, name: e.target.value })} /></Field>
-        <Field label="Team Lead" htmlFor="t-lead" hint="Only users with the Admin role can lead a team."><select id="t-lead" className={inputCls} value={v.lead_id ?? ''} onChange={(e) => setV({ ...v, lead_id: e.target.value || null })}><option value="">Not assigned</option>{leads.map((l) => <option key={l.id} value={l.id}>{l.full_name}</option>)}</select></Field>
+        <Field label="Team Lead" htmlFor="t-lead" hint="Only users with the Admin role can lead a team."><Select people id="t-lead" className={inputCls} value={v.lead_id ?? ''} onChange={(e) => setV({ ...v, lead_id: e.target.value || null })}><option value="">Not assigned</option>{leads.map((l) => <option key={l.id} value={l.id}>{l.full_name}</option>)}</Select></Field>
         <ErrorBox error={err} />
       </div>
     </Modal>
@@ -494,11 +495,11 @@ export function PeriodsPage() {
         </Card>
         <Card title="Appeal window & review targets" actions={<Button size="sm" loading={busy === 'appeal_window'} onClick={async () => { await saveKey('appeal_window'); await saveKey('sla'); }}>Save</Button>}>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Appeals close on" htmlFor="s-dow" hint="A weekday overrides the day count below."><select id="s-dow" className={inputCls} value={s.appeal_window.close_dow ?? ''} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, close_dow: e.target.value === '' ? null : num(e.target.value) } })}>
-              <option value="">Count days after publishing</option>{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((n, i) => <option key={n} value={i + 1}>The next {n}, 11:59 pm</option>)}</select></Field>
+            <Field label="Appeals close on" htmlFor="s-dow" hint="A weekday overrides the day count below."><Select id="s-dow" className={inputCls} value={s.appeal_window.close_dow ?? ''} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, close_dow: e.target.value === '' ? null : num(e.target.value) } })}>
+              <option value="">Count days after publishing</option>{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((n, i) => <option key={n} value={i + 1}>The next {n}, 11:59 pm</option>)}</Select></Field>
             <Field label="Appeal window (days after publication)" htmlFor="s-aw"><input id="s-aw" type="number" className={inputCls} value={s.appeal_window.days} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, days: num(e.target.value) } })} /></Field>
-            <Field label="Count" htmlFor="s-bd"><select id="s-bd" className={inputCls} value={s.appeal_window.business_days ? 'b' : 'c'} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, business_days: e.target.value === 'b' } })}><option value="b">Business days</option><option value="c">Calendar days</option></select></Field>
-            <Field label="Closes" htmlFor="s-eod" hint="Time zone: the portal's reporting time zone."><select id="s-eod" className={inputCls} value={s.appeal_window.end_of_day ? 'eod' : 'exact'} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, end_of_day: e.target.value === 'eod' } })}><option value="eod">At 11:59 pm on the last day</option><option value="exact">Same time of day as publishing</option></select></Field>
+            <Field label="Count" htmlFor="s-bd"><Select id="s-bd" className={inputCls} value={s.appeal_window.business_days ? 'b' : 'c'} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, business_days: e.target.value === 'b' } })}><option value="b">Business days</option><option value="c">Calendar days</option></Select></Field>
+            <Field label="Closes" htmlFor="s-eod" hint="Time zone: the portal's reporting time zone."><Select id="s-eod" className={inputCls} value={s.appeal_window.end_of_day ? 'eod' : 'exact'} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, end_of_day: e.target.value === 'eod' } })}><option value="eod">At 11:59 pm on the last day</option><option value="exact">Same time of day as publishing</option></Select></Field>
             <Field label="Max appeals per CAM per week" htmlFor="s-max" hint="Leave empty for no limit. SOP: one per audit cycle."><input id="s-max" type="number" className={inputCls} value={s.appeal_window.max_appeals_per_cam_per_period ?? ''} onChange={(e) => setS({ ...s, appeal_window: { ...s.appeal_window, max_appeals_per_cam_per_period: e.target.value === '' ? null : num(e.target.value) } })} /></Field>
             <Field label="Lead review target (days)" htmlFor="s-lr"><input id="s-lr" type="number" className={inputCls} value={s.sla.lead_review_days} onChange={(e) => setS({ ...s, sla: { ...s.sla, lead_review_days: num(e.target.value) } })} /></Field>
             <Field label="QA review target (days)" htmlFor="s-qr"><input id="s-qr" type="number" className={inputCls} value={s.sla.qa_review_days} onChange={(e) => setS({ ...s, sla: { ...s.sla, qa_review_days: num(e.target.value) } })} /></Field>
@@ -507,9 +508,9 @@ export function PeriodsPage() {
         </Card>
         <Card title="Weekly reporting schedule" actions={<Button size="sm" loading={busy === 'reporting'} onClick={() => saveKey('reporting')}>Save</Button>}>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Audit week starts on" htmlFor="s-dow" hint="The current audit form uses Thursday–Wednesday weeks."><select id="s-dow" className={inputCls} value={s.reporting.week_start_dow} onChange={(e) => setS({ ...s, reporting: { ...s.reporting, week_start_dow: num(e.target.value) } })}>{DOW.slice(1).map((d, i) => <option key={d} value={i + 1}>{d}</option>)}</select></Field>
-            <Field label="Auto-publish weekly" htmlFor="s-apub"><select id="s-apub" className={inputCls} value={s.reporting.auto_publish ? 'y' : 'n'} onChange={(e) => setS({ ...s, reporting: { ...s.reporting, auto_publish: e.target.value === 'y' } })}><option value="n">No — QA publishes manually</option><option value="y">Yes — on schedule</option></select></Field>
-            <Field label="Publish on" htmlFor="s-pdow"><select id="s-pdow" className={inputCls} value={s.reporting.auto_publish_dow} onChange={(e) => setS({ ...s, reporting: { ...s.reporting, auto_publish_dow: num(e.target.value) } })}>{DOW.slice(1).map((d, i) => <option key={d} value={i + 1}>{d}</option>)}</select></Field>
+            <Field label="Audit week starts on" htmlFor="s-dow" hint="The current audit form uses Thursday–Wednesday weeks."><Select id="s-dow" className={inputCls} value={s.reporting.week_start_dow} onChange={(e) => setS({ ...s, reporting: { ...s.reporting, week_start_dow: num(e.target.value) } })}>{DOW.slice(1).map((d, i) => <option key={d} value={i + 1}>{d}</option>)}</Select></Field>
+            <Field label="Auto-publish weekly" htmlFor="s-apub"><Select id="s-apub" className={inputCls} value={s.reporting.auto_publish ? 'y' : 'n'} onChange={(e) => setS({ ...s, reporting: { ...s.reporting, auto_publish: e.target.value === 'y' } })}><option value="n">No — QA publishes manually</option><option value="y">Yes — on schedule</option></Select></Field>
+            <Field label="Publish on" htmlFor="s-pdow"><Select id="s-pdow" className={inputCls} value={s.reporting.auto_publish_dow} onChange={(e) => setS({ ...s, reporting: { ...s.reporting, auto_publish_dow: num(e.target.value) } })}>{DOW.slice(1).map((d, i) => <option key={d} value={i + 1}>{d}</option>)}</Select></Field>
             <Field label="at (local time)" htmlFor="s-ptime"><input id="s-ptime" type="time" className={inputCls} value={s.reporting.auto_publish_time} onChange={(e) => setS({ ...s, reporting: { ...s.reporting, auto_publish_time: e.target.value } })} /></Field>
           </div>
           <p className="mt-3 text-[12px] text-muted">When on, every draft week that has audits is published on the chosen day after the week ends (a time set on an individual week wins). This runs through the <code className="font-mono">publish_due_periods()</code> job, which needs the scheduled job in <code className="font-mono">supabase/cron.sql</code>.</p>
@@ -517,8 +518,8 @@ export function PeriodsPage() {
         <Card title="Notifications" actions={<Button size="sm" loading={busy === 'notifications'} onClick={() => saveKey('notifications')}>Save</Button>}>
           <div className="flex flex-col gap-3 text-[13px]">
             <Field label="Send portal emails through" htmlFor="s-route" hint="Your Google Sheet script sends invitations, password links, notifications and weekly reports from your Gmail (run installTrigger in the script once). Supabase email needs working SMTP.">
-              <select id="s-route" className={inputCls} value={s.notifications.mail_route ?? 'supabase'} onChange={(e) => setS({ ...s, notifications: { ...s.notifications, mail_route: e.target.value as 'sheet' | 'supabase' } })}>
-                <option value="sheet">My Gmail, via the Google Sheet script</option><option value="supabase">Supabase email (SMTP)</option></select></Field>
+              <Select id="s-route" className={inputCls} value={s.notifications.mail_route ?? 'supabase'} onChange={(e) => setS({ ...s, notifications: { ...s.notifications, mail_route: e.target.value as 'sheet' | 'supabase' } })}>
+                <option value="sheet">My Gmail, via the Google Sheet script</option><option value="supabase">Supabase email (SMTP)</option></Select></Field>
             <label htmlFor="s-email" className="flex items-center gap-2"><input id="s-email" type="checkbox" checked={s.notifications.email_enabled} onChange={(e) => setS({ ...s, notifications: { ...s.notifications, email_enabled: e.target.checked } })} />Send email notifications (in addition to in-app)</label>
             <Field label="Portal URL used in email links" htmlFor="s-url"><input id="s-url" className={inputCls} value={s.notifications.portal_url} placeholder="https://qa-portal.your-domain.com/#" onChange={(e) => setS({ ...s, notifications: { ...s.notifications, portal_url: e.target.value } })} /></Field>
             <table className="w-full text-[13px]">
@@ -637,8 +638,8 @@ export function ImportPage() {
         <Card title="1. Choose file">
           <div className="flex flex-col gap-3 text-[13px]">
             <input aria-label="Audit export file" type="file" accept=".csv,.xlsx" onChange={(e) => { const f = e.target.files?.[0] ?? null; setFile(f); if (f) parse(f); }} />
-            <Field label="Timezone of the form timestamps" htmlFor="imp-tz" hint="Google Forms records timestamps in the sheet’s timezone."><select id="imp-tz" className={inputCls} value={tz} onChange={(e) => { setTz(e.target.value); if (file) parse(file); }}>
-              <option value="+05:30">IST (UTC+05:30)</option><option value="+00:00">UTC</option><option value="-05:00">US Eastern (UTC−05:00)</option><option value="-08:00">US Pacific (UTC−08:00)</option></select></Field>
+            <Field label="Timezone of the form timestamps" htmlFor="imp-tz" hint="Google Forms records timestamps in the sheet’s timezone."><Select id="imp-tz" className={inputCls} value={tz} onChange={(e) => { setTz(e.target.value); if (file) parse(file); }}>
+              <option value="+05:30">IST (UTC+05:30)</option><option value="+00:00">UTC</option><option value="-05:00">US Eastern (UTC−05:00)</option><option value="-08:00">US Pacific (UTC−08:00)</option></Select></Field>
             <label htmlFor="imp-pub" className="flex items-center gap-2"><input id="imp-pub" type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />Publish new weeks immediately (use for historical backfill)</label>
             <details className="text-[12.5px] text-muted"><summary className="cursor-pointer">Expected columns</summary>
               <p className="mt-1">{Object.values(DEFAULT_COLUMN_MAP).join(' · ')} · plus every parameter column of the form (e.g. “[Query resolution (ER) [30]]”) and the Feedback / FCR columns per task type.</p></details>
@@ -717,9 +718,9 @@ function ColumnMapper({ records, map, missing, onApply }: { records: Record<stri
       <ErrorBox error={new Error(`Required columns not found: ${missing.join(', ')}. Choose which column in your file holds each one.`)} />
       {missingKeys.map((k) => (
         <Field key={k} label={DEFAULT_COLUMN_MAP[k]} htmlFor={`cm-${k}`}>
-          <select id={`cm-${k}`} className={inputCls} value={m[k] ?? ''} onChange={(e) => setM({ ...m, [k]: e.target.value || undefined })}>
+          <Select id={`cm-${k}`} className={inputCls} value={m[k] ?? ''} onChange={(e) => setM({ ...m, [k]: e.target.value || undefined })}>
             <option value="">Choose a column…</option>{headers.map((h) => <option key={h} value={h}>{h}</option>)}
-          </select>
+          </Select>
         </Field>
       ))}
       <div><Button onClick={() => onApply(m)}>Apply column mapping</Button></div>
@@ -748,12 +749,12 @@ export function AuditLogPage() {
     <div className="flex flex-col gap-5">
       <PageHeader title="Audit Logs" subtitle="Every score change, appeal status change, configuration change and import, with previous and new values." />
       <div className="flex flex-wrap gap-3">
-        <select aria-label="Area" className={inputBase + ' w-auto'} value={table} onChange={(e) => { setTable(e.target.value); setPage(1); }}>
-          <option value="">All areas</option>{['evaluations', 'appeals', 'employees', 'teams', 'evaluation_parameters', 'settings', 'reporting_periods', 'import_batches', 'appeal_resubmission_grants'].map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select>
-        <select aria-label="Action" className={inputBase + ' w-auto'} value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}>
-          <option value="">All actions</option>{AUDIT_ACTIONS.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</select>
-        <select aria-label="Who" className={inputBase + ' w-auto max-w-[220px]'} value={actor} onChange={(e) => { setActor(e.target.value); setPage(1); }}>
-          <option value="">Anyone</option>{ref.employees.filter((e) => e.role !== 'user').sort((a, b) => a.full_name.localeCompare(b.full_name)).map((e) => <option key={e.id} value={e.id}>{e.full_name}</option>)}</select>
+        <Select aria-label="Area" className={inputBase + ' w-auto'} value={table} onChange={(e) => { setTable(e.target.value); setPage(1); }}>
+          <option value="">All areas</option>{['evaluations', 'appeals', 'employees', 'teams', 'evaluation_parameters', 'settings', 'reporting_periods', 'import_batches', 'appeal_resubmission_grants'].map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</Select>
+        <Select aria-label="Action" className={inputBase + ' w-auto'} value={action} onChange={(e) => { setAction(e.target.value); setPage(1); }}>
+          <option value="">All actions</option>{AUDIT_ACTIONS.map((t) => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}</Select>
+        <Select people aria-label="Who" className={inputBase + ' w-auto max-w-[220px]'} value={actor} onChange={(e) => { setActor(e.target.value); setPage(1); }}>
+          <option value="">Anyone</option>{ref.employees.filter((e) => e.role !== 'user').sort((a, b) => a.full_name.localeCompare(b.full_name)).map((e) => <option key={e.id} value={e.id}>{e.full_name}</option>)}</Select>
         <label className="flex items-center gap-1.5 text-[13px] text-muted">From<input aria-label="From date" type="date" className={inputBase + ' w-auto'} value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} /></label>
         <label className="flex items-center gap-1.5 text-[13px] text-muted">to<input aria-label="To date" type="date" className={inputBase + ' w-auto'} value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} /></label>
         <input aria-label="Record ID" className={inputBase + ' w-64'} placeholder="Record ID (exact)" value={record} onChange={(e) => { setRecord(e.target.value); setPage(1); }} />

@@ -18,7 +18,7 @@ await p.fill('#ls-name', 'Test Admin'); await p.fill('#ls-email', 'qa.admin@exam
 await p.click('button[type=submit]'); await p.waitForSelector('text=Data Import');
 await p.goto(B + '/admin/users'); await p.waitForSelector('text=Users & Roles');
 await p.click('button:has-text("Add user")');
-await p.fill('#u-name', 'Test Cam'); await p.fill('#u-email', 'test.cam@example.com'); await p.selectOption('#u-role', 'user');
+await p.fill('#u-name', 'Test Cam'); await p.fill('#u-email', 'test.cam@example.com'); await p.click('#u-role'); await p.getByRole('option', { name: 'User (CAM)' }).click();
 await p.click('[role=dialog] button:has-text("Save")'); await p.waitForSelector('text=test.cam@example.com');
 // before a password: the CAM cannot sign in (and the old shared demo password must not work)
 const row = p.locator('tr', { hasText: 'test.cam@example.com' });

@@ -10,6 +10,7 @@ import { Button, Card, EmptyState, ErrorBox, Field, Loading, Modal, Pill, ScoreB
 import { EvaluationsTable } from '../components/shared';
 import { isQaRole, appealWindowOpen, fmtDate, fmtDateTime, fmtPct } from '../lib/metrics';
 import type { AppealItem, Evaluation } from '../lib/types';
+import { Select } from '../components/Select';
 
 // ------------------------------------------------------------------ list
 export function EvaluationsPage() {
@@ -33,11 +34,11 @@ export function EvaluationsPage() {
       <Card pad={false}>
         <div className="flex flex-wrap items-end gap-3 p-3">
           <div className="flex flex-col gap-1"><label htmlFor="ev-type" className="text-[12px] font-medium text-muted">Task type</label>
-            <select id="ev-type" className={inputCls} value={type} onChange={(e) => setType(e.target.value)}><option value="">All</option>{ref.taskTypes.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}</select></div>
+            <Select id="ev-type" className={inputCls} value={type} onChange={(e) => setType(e.target.value)}><option value="">All</option>{ref.taskTypes.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}</Select></div>
           {me!.role !== 'user' && <div className="flex flex-col gap-1"><label htmlFor="ev-cam" className="text-[12px] font-medium text-muted">CAM</label>
-            <select id="ev-cam" className={inputCls} value={cam} onChange={(e) => setCam(e.target.value)}><option value="">All CAMs</option>{camsInScope.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</select></div>}
+            <Select people id="ev-cam" className={inputCls} value={cam} onChange={(e) => setCam(e.target.value)}><option value="">All CAMs</option>{camsInScope.map(([id, n]) => <option key={id} value={id}>{n}</option>)}</Select></div>}
           <div className="flex flex-col gap-1"><label htmlFor="ev-only" className="text-[12px] font-medium text-muted">Show</label>
-            <select id="ev-only" className={inputCls} value={only} onChange={(e) => setOnly(e.target.value as typeof only)}><option value="">All tasks</option><option value="deducted">Below 100</option><option value="autofail">Autofails</option><option value="adjusted">Adjusted after appeal</option></select></div>
+            <Select id="ev-only" className={inputCls} value={only} onChange={(e) => setOnly(e.target.value as typeof only)}><option value="">All tasks</option><option value="deducted">Below 100</option><option value="autofail">Autofails</option><option value="adjusted">Adjusted after appeal</option></Select></div>
           <div className="flex flex-col gap-1"><label htmlFor="ev-q" className="text-[12px] font-medium text-muted">Search task ID or feedback</label>
             <input id="ev-q" className={inputBase + ' w-64'} value={q} onChange={(e) => setQ(e.target.value)} /></div>
           <span className="ml-auto text-[12.5px] text-muted tnum">{rows.length} task(s)</span>
@@ -294,10 +295,10 @@ function AdjustScoreModal({ open, onClose, evaluation: e, onDone }: { open: bool
       <div className="flex flex-col gap-3 text-[13px]">
         <p className="text-muted">Use this for QA corrections outside an appeal. The original score is kept; the change, your reason and your name are written to the audit log, and the CAM is notified.</p>
         <Field label="Parameter" htmlFor="adj-param">
-          <select id="adj-param" className={inputCls} value={param} onChange={(x) => setParam(x.target.value)}>
+          <Select id="adj-param" className={inputCls} value={param} onChange={(x) => setParam(x.target.value)}>
             {e.scores.map((x) => <option key={x.parameter_id} value={x.parameter_id}>{x.parameter_name} (max {x.max_score})</option>)}
             <option value="AF">Autofail flag</option>
-          </select>
+          </Select>
         </Field>
         <p>Current value: <strong className="tnum">{param === 'AF' ? (cur ? 'Yes' : 'No') : cur ?? 'NA'}</strong></p>
         <Field label={param === 'AF' ? 'New value (1 = autofail, 0 = no autofail)' : 'New score'} htmlFor="adj-val"><input id="adj-val" type="number" className={inputCls} value={value} onChange={(x) => setValue(x.target.value)} /></Field>

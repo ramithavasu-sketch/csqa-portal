@@ -9,6 +9,7 @@ import { fmtDateTime, fmtRange } from '../lib/metrics';
 import { renderReportEmail } from '../lib/email';
 import { ScorecardCard } from '../components/ScorecardCard';
 import type { PortalSettings, WeeklyEmailRow } from '../lib/types';
+import { Select } from '../components/Select';
 
 export default function WeeklyEmailsPage() {
   const { reloadRef, bump, me } = useApp();
@@ -46,8 +47,8 @@ export default function WeeklyEmailsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader title="Weekly Report Emails" subtitle="Once a week is published, send every audited CAM their QA report link — To: CAM, CC: their Team Lead — using your standard wording."
         actions={<div className="flex items-center gap-2"><label htmlFor="we-week" className="text-[13px] text-muted">Audit week</label>
-          <select id="we-week" className={inputBase + ' w-auto'} value={periodId} onChange={(e) => { setSp({ period: e.target.value }, { replace: true }); setSel(new Set()); setResult(null); }}>
-            {weeks.map((p) => <option key={p.id} value={p.id}>{p.short_label} · {fmtRange(p.start_date, p.end_date)}</option>)}</select></div>} />
+          <Select id="we-week" className={inputBase + ' w-auto'} value={periodId} onChange={(e) => { setSp({ period: e.target.value }, { replace: true }); setSel(new Set()); setResult(null); }}>
+            {weeks.map((p) => <option key={p.id} value={p.id}>{p.short_label} · {fmtRange(p.start_date, p.end_date)}</option>)}</Select></div>} />
       {!weeks.length && <EmptyState title="No published weeks yet" body="Publish a week under Reporting & Settings first." />}
       {isLocal && <p className="rounded bg-info-soft px-3 py-2 text-[13px] text-info">Local review mode: you can check recipients, CC and the email preview here. Sending is switched off until the portal is deployed, so no email can go out while you review.</p>}
       {portalMissing && !isLocal && <ErrorBox error={new Error('Set the portal URL under Reporting & Settings → Notifications first, so the email can link to each CAM’s report.')} />}

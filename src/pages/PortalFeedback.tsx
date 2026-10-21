@@ -5,6 +5,7 @@ import { repo } from '../data';
 import { PageHeader } from '../components/Layout';
 import { Card, EmptyState, ErrorBox, Kpi, Loading, Pill, Table, td, th, inputBase, useToast } from '../components/ui';
 import { fmtDateTime } from '../lib/metrics';
+import { Select } from '../components/Select';
 
 const KIND: Record<string, { label: string; tone: 'bad' | 'info' | 'warn' | 'neutral' }> = {
   bug: { label: 'Problem', tone: 'bad' }, idea: { label: 'Idea', tone: 'info' }, question: { label: 'Question', tone: 'warn' }, other: { label: 'Other', tone: 'neutral' },
@@ -26,8 +27,8 @@ export default function PortalFeedbackPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader title="Portal Feedback" subtitle="Everything people sent with the Feedback button. Each one is also emailed to you; reply to that email to answer the sender."
-        actions={<select aria-label="Show" className={inputBase + ' w-auto'} value={show} onChange={(e) => setShow(e.target.value as 'new' | 'done' | 'all')}>
-          <option value="new">New</option><option value="done">Handled</option><option value="all">All</option></select>} />
+        actions={<Select aria-label="Show" className={inputBase + ' w-auto'} value={show} onChange={(e) => setShow(e.target.value as 'new' | 'done' | 'all')}>
+          <option value="new">New</option><option value="done">Handled</option><option value="all">All</option></Select>} />
       <ErrorBox error={rows.error} />
       {rows.loading ? <Loading /> : (<>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

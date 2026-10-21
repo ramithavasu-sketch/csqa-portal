@@ -46,10 +46,10 @@ export default function Layout() {
   return (
     <div className="flex min-h-full">
       {/* sidebar */}
-      <aside className={clsx('fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-surface transition-transform lg:translate-x-0',
+      <aside className={clsx('fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-bg transition-transform lg:translate-x-0',
         open ? 'translate-x-0' : '-translate-x-full')} style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex h-14 items-center gap-2 border-b border-line px-4">
-          <ShieldCheck className="h-5 w-5 text-brand" aria-hidden />
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-brand-ink"><ShieldCheck className="h-4 w-4" aria-hidden /></span>
           <div className="leading-tight">
             <div className="text-[14px] font-bold">CS QA Portal</div>
             <div className="text-[11px] text-muted">Client Services Quality</div>
@@ -95,8 +95,8 @@ function NavGroup({ items, role }: { items: NavItem[]; role: string }) {
     <ul className="flex flex-col gap-0.5">
       {items.filter((it) => !it.roles || (it.roles as string[]).includes(role)).map((it) => (
         <li key={it.to}>
-          <NavLink to={it.to} end={it.to === '/'} className={({ isActive }) => clsx('flex items-center gap-2.5 rounded px-3 py-2 text-[13.5px] font-medium',
-            isActive ? 'bg-brand-soft text-brand' : 'text-muted hover:bg-sunken hover:text-ink')}>
+          <NavLink to={it.to} end={it.to === '/'} className={({ isActive }) => clsx('flex items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] font-medium transition-colors',
+            isActive ? 'bg-sunken text-ink' : 'text-muted hover:bg-sunken hover:text-ink')}>
             <it.icon className="h-4 w-4" aria-hidden />{it.label}
           </NavLink>
         </li>
@@ -118,7 +118,7 @@ function NotificationBell() {
         {unread.length > 0 && <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-bad px-1 text-center text-[10px] font-bold leading-4 text-white tnum">{unread.length}</span>}
       </button>
       {open && (
-        <div className="absolute right-0 top-11 z-40 w-[min(92vw,360px)] rounded-lg border border-line bg-surface shadow-xl">
+        <div className="absolute right-0 top-11 z-40 w-[min(92vw,360px)] rounded-xl border border-line bg-surface shadow-lg animate-in">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="font-semibold text-sm">Notifications</span>
             <button className="text-[12px] text-brand hover:underline" onClick={async () => { await repo.markNotificationsRead(); bump(); }}>Mark all read</button>

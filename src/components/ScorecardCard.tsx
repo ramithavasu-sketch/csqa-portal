@@ -6,6 +6,7 @@ import { Button, Card, ErrorBox, Field, Loading, Modal, Pill, inputCls, textarea
 import { buildScorecard, buildScorecardSummary, scorecardTeams } from '../lib/scorecard';
 import { fmtDateTime } from '../lib/metrics';
 import type { Evaluation, Period } from '../lib/types';
+import { Select } from './Select';
 
 /** Weekly overall "Task Audit Scorecard" email: preview, open in the browser, send with a confirmation step. */
 export function ScorecardCard({ period }: { period: Period }) {
@@ -89,11 +90,11 @@ export function ScorecardCard({ period }: { period: Period }) {
           <div className="grid gap-3 lg:grid-cols-2">
             <Field label={`To (${count(to)})`} htmlFor="sc-to"><textarea id="sc-to" rows={3} className={textareaCls} value={to} onChange={(e) => setTo(e.target.value)} /></Field>
             <Field label={`Cc (${count(cc)})`} htmlFor="sc-cc"><textarea id="sc-cc" rows={3} className={textareaCls} value={cc} onChange={(e) => setCc(e.target.value)} /></Field>
-            <Field label="Format" htmlFor="sc-format"><select id="sc-format" className={inputCls} value={format} onChange={(e) => setFormat(e.target.value as 'new' | 'classic')}>
+            <Field label="Format" htmlFor="sc-format"><Select id="sc-format" className={inputCls} value={format} onChange={(e) => setFormat(e.target.value as 'new' | 'classic')}>
               <option value="new">New — summary, needs attention, top issues, autofails with full feedback</option>
-              <option value="classic">Classic — full CAM × parameter grid (as sent before)</option></select></Field>
-            <Field label="Chat Team = CAMs of this Team Lead" htmlFor="sc-lead"><select id="sc-lead" className={inputCls} value={chatLead} onChange={(e) => setChatLead(e.target.value)}>
-              <option value="">No Chat Team table</option>{leads.map((l) => <option key={l.id} value={l.id}>{l.full_name}</option>)}</select></Field>
+              <option value="classic">Classic — full CAM × parameter grid (as sent before)</option></Select></Field>
+            <Field label="Chat Team = CAMs of this Team Lead" htmlFor="sc-lead"><Select people id="sc-lead" className={inputCls} value={chatLead} onChange={(e) => setChatLead(e.target.value)}>
+              <option value="">No Chat Team table</option>{leads.map((l) => <option key={l.id} value={l.id}>{l.full_name}</option>)}</Select></Field>
             <div className="text-[12.5px] text-muted">From: <strong className="text-ink">{cfg.from_name} &lt;{cfg.from_email || 'your Gmail'}&gt;</strong>
               {isSuper && <div className="mt-2"><Button size="sm" variant="ghost" onClick={saveDefaults}>Save To, Cc, Chat Team lead and format as default</Button></div>}</div>
             {Object.keys(excl).map((k) => (

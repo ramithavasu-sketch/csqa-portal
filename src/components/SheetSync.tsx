@@ -7,6 +7,7 @@ import { Button, Card, ErrorBox, Field, Pill, Table, td, th, inputCls, useToast 
 import { GOOGLE_CLIENT_ID, hasGoogleToken, syncSources, type SourceResult } from '../lib/googleSheets';
 import { fmtDateTime } from '../lib/metrics';
 import type { DataSource } from '../../supabase/functions/_shared/rubric';
+import { Select } from './Select';
 
 const LAST_KEY = 'csqa-last-sheet-sync';
 const AUTO_KEY = 'csqa-auto-sheet-sync';
@@ -160,7 +161,7 @@ export function SheetSourcesCard() {
           <div className="grid gap-2 rounded border border-line p-3 sm:grid-cols-[2fr_1fr_1fr_auto] sm:items-end">
             <Field label="Google Sheet link" htmlFor="ns-url"><input id="ns-url" className={inputCls} value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…" /></Field>
             <Field label="Tab name (if no gid in link)" htmlFor="ns-tab"><input id="ns-tab" className={inputCls} value={newTab} onChange={(e) => setNewTab(e.target.value)} /></Field>
-            <Field label="Type" htmlFor="ns-kind"><select id="ns-kind" className={inputCls} value={newKind} onChange={(e) => setNewKind(e.target.value as 'live' | 'archive')}><option value="archive">Archive (import once)</option><option value="live">Live (sync every time)</option></select></Field>
+            <Field label="Type" htmlFor="ns-kind"><Select id="ns-kind" className={inputCls} value={newKind} onChange={(e) => setNewKind(e.target.value as 'live' | 'archive')}><option value="archive">Archive (import once)</option><option value="live">Live (sync every time)</option></Select></Field>
             <Button onClick={async () => {
               const id = /\/d\/([a-zA-Z0-9-_]+)/.exec(newUrl)?.[1]; const gid = /[#&?]gid=(\d+)/.exec(newUrl)?.[1];
               if (!id) return setErr(new Error('Paste the full Google Sheets link.'));

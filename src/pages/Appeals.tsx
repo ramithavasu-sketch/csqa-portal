@@ -7,6 +7,7 @@ import { PageHeader } from '../components/Layout';
 import { Button, Card, EmptyState, ErrorBox, Loading, Pagination, Pill, ScoreBadge, StatusBadge, Tabs, Table, td, th, inputCls, inputBase } from '../components/ui';
 import { isQaRole, APPEAL_STATUS_LABEL, fmtDate } from '../lib/metrics';
 import type { Appeal, AppealStatus } from '../lib/types';
+import { Select } from '../components/Select';
 
 type TabDef = { value: string; label: string; statuses?: AppealStatus[] };
 const TABS: Record<'user' | 'admin' | 'manager' | 'super_admin' | 'evaluator', TabDef[]> = {
@@ -104,7 +105,7 @@ export function AppealsPage() {
 function Sel({ id, label, value, onChange, options }: { id: string; label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
   return (
     <div className="flex flex-col gap-1"><label htmlFor={id} className="text-[12px] font-medium text-muted">{label}</label>
-      <select id={id} className={inputBase + ' w-auto max-w-[220px]'} value={value} onChange={(e) => onChange(e.target.value)}><option value="">All</option>{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+      <Select id={id} className={inputBase + ' w-auto max-w-[220px]'} value={value} onChange={(e) => onChange(e.target.value)}><option value="">All</option>{options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></div>
   );
 }
 

@@ -6,6 +6,7 @@ import { Button, Card, EmptyState, ErrorBox, Field, Loading, ScoreBadge, Tabs, T
 import { isQaRole, isReportee, buildSelection, fmtDate, fmtRange, isOpenAppeal, monthLabel, monthOptions, quarterOptions, summarize, variance, type PeriodMode } from '../lib/metrics';
 import { buildReport, downloadReport } from '../lib/report';
 import type { Appeal, Evaluation, Employee } from '../lib/types';
+import { Select } from '../components/Select';
 
 /** Scope options the current user may report on (CAM: self; Lead: team or one CAM; QA: org, lead team, or CAM). */
 function useScopes() {
@@ -97,7 +98,7 @@ export function ReportsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader title="Report History" subtitle={<>Each audit week becomes a report automatically when QA publishes it. Nothing to adjust by hand — pick a row and download. For any other date range use <a href="#/downloads" className="text-brand hover:underline">Download Reports</a>.</>}
         actions={scopes.length > 1 && (<div className="flex items-center gap-2"><label htmlFor="rep-scope" className="text-[13px] text-muted">Report for</label>
-          <select id="rep-scope" className={inputBase + ' w-auto max-w-[280px]'} value={scope.key} onChange={(e) => setScopeKey(e.target.value)}>{scopes.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>)} />
+          <Select id="rep-scope" className={inputBase + ' w-auto max-w-[280px]'} value={scope.key} onChange={(e) => setScopeKey(e.target.value)}>{scopes.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select></div>)} />
       <Tabs value={tab} onChange={setTab} tabs={[{ value: 'week', label: 'Weekly reports' }, { value: 'month', label: 'Monthly summaries' }, { value: 'quarter', label: 'Quarterly summaries' }]} />
       <ErrorBox error={d.error} />
       {d.loading ? <Loading /> : rows.length === 0 ? <EmptyState title="No QA evaluations are available for this reporting period." body="Reports appear here as soon as QA publishes an audit week." /> : (
@@ -167,13 +168,13 @@ export function DownloadsPage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card title="Report options">
           <div className="flex flex-col gap-4">
-            <Field label="Report for" htmlFor="dl-scope"><select id="dl-scope" className={inputCls} value={scope.key} onChange={(e) => setScopeKey(e.target.value)}>{scopes.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></Field>
+            <Field label="Report for" htmlFor="dl-scope"><Select id="dl-scope" className={inputCls} value={scope.key} onChange={(e) => setScopeKey(e.target.value)}>{scopes.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</Select></Field>
             {isQaRole(me!.role) && <label htmlFor="dl-drafts" className="flex items-center gap-2 text-[13px]"><input id="dl-drafts" type="checkbox" checked={drafts} onChange={(e) => setDrafts(e.target.checked)} />Include unpublished (draft) weeks — QA only</label>}
-            <Field label="Period type" htmlFor="dl-mode"><select id="dl-mode" className={inputCls} value={mode} onChange={(e) => { const m = e.target.value as PeriodMode; setMode(m); setAnchor(m === 'week' ? periods[periods.length - 1]?.id ?? '' : m === 'month' ? monthOptions(periods)[0] : quarterOptions(periods)[0]); }}>
-              <option value="week">Weekly</option><option value="month">Monthly</option><option value="quarter">Quarterly</option><option value="custom">Custom date range</option></select></Field>
-            {mode === 'week' && <Field label="Audit week" htmlFor="dl-week"><select id="dl-week" className={inputCls} value={anchor} onChange={(e) => setAnchor(e.target.value)}>{[...periods].reverse().map((p) => <option key={p.id} value={p.id}>{p.short_label} · {fmtRange(p.start_date, p.end_date)}{p.status === 'draft' ? ' (draft)' : ''}</option>)}</select></Field>}
-            {mode === 'month' && <Field label="Month" htmlFor="dl-month"><select id="dl-month" className={inputCls} value={anchor} onChange={(e) => setAnchor(e.target.value)}>{monthOptions(periods).map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</select></Field>}
-            {mode === 'quarter' && <Field label="Quarter" htmlFor="dl-q"><select id="dl-q" className={inputCls} value={anchor} onChange={(e) => setAnchor(e.target.value)}>{quarterOptions(periods).map((q) => <option key={q} value={q}>{q.replace('-', ' ')}</option>)}</select></Field>}
+            <Field label="Period type" htmlFor="dl-mode"><Select id="dl-mode" className={inputCls} value={mode} onChange={(e) => { const m = e.target.value as PeriodMode; setMode(m); setAnchor(m === 'week' ? periods[periods.length - 1]?.id ?? '' : m === 'month' ? monthOptions(periods)[0] : quarterOptions(periods)[0]); }}>
+              <option value="week">Weekly</option><option value="month">Monthly</option><option value="quarter">Quarterly</option><option value="custom">Custom date range</option></Select></Field>
+            {mode === 'week' && <Field label="Audit week" htmlFor="dl-week"><Select id="dl-week" className={inputCls} value={anchor} onChange={(e) => setAnchor(e.target.value)}>{[...periods].reverse().map((p) => <option key={p.id} value={p.id}>{p.short_label} · {fmtRange(p.start_date, p.end_date)}{p.status === 'draft' ? ' (draft)' : ''}</option>)}</Select></Field>}
+            {mode === 'month' && <Field label="Month" htmlFor="dl-month"><Select id="dl-month" className={inputCls} value={anchor} onChange={(e) => setAnchor(e.target.value)}>{monthOptions(periods).map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</Select></Field>}
+            {mode === 'quarter' && <Field label="Quarter" htmlFor="dl-q"><Select id="dl-q" className={inputCls} value={anchor} onChange={(e) => setAnchor(e.target.value)}>{quarterOptions(periods).map((q) => <option key={q} value={q}>{q.replace('-', ' ')}</option>)}</Select></Field>}
             {mode === 'custom' && <div className="grid grid-cols-2 gap-3">
               <Field label="Start date" htmlFor="dl-from"><input id="dl-from" type="date" className={inputCls} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
               <Field label="End date" htmlFor="dl-to"><input id="dl-to" type="date" className={inputCls} value={to} onChange={(e) => setTo(e.target.value)} /></Field></div>}

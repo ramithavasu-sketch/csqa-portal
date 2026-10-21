@@ -12,6 +12,7 @@ import { DownloadMenu, ParameterAnalysis } from '../components/shared';
 import { isReportee, APPEAL_STATUS_LABEL, band, camRows, fmtDate, fmtPct, isOpenAppeal, isPendingAppeal, isResolvedAppeal, summarize } from '../lib/metrics';
 import { buildReport } from '../lib/report';
 import type { AppealStatus } from '../lib/types';
+import { Select } from '../components/Select';
 
 type View = 'org' | 'lead' | 'cam';
 
@@ -79,14 +80,14 @@ export default function QaDashboard() {
 
       <Card pad={false}>
         <div className="flex flex-wrap items-end gap-3 p-3">
-          <Filter id="f-lead" label="Team Lead"><select id="f-lead" className={inputCls} value={leadId} onChange={(e) => setLeadId(e.target.value)}><option value="">All Team Leads</option>{leads.map((l) => <option key={l.id} value={l.id}>{l.full_name}</option>)}</select></Filter>
-          <Filter id="f-type" label="Task type"><select id="f-type" className={inputCls} value={taskType} onChange={(e) => setTaskType(e.target.value)}><option value="">All task types</option>{ref.taskTypes.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}</select></Filter>
-          <Filter id="f-af" label="Autofail"><select id="f-af" className={inputCls} value={autofail} onChange={(e) => setAutofail(e.target.value as '' | 'yes' | 'no')}><option value="">Any</option><option value="yes">Autofail only</option><option value="no">Exclude autofails</option></select></Filter>
+          <Filter id="f-lead" label="Team Lead"><Select people id="f-lead" className={inputCls} value={leadId} onChange={(e) => setLeadId(e.target.value)}><option value="">All Team Leads</option>{leads.map((l) => <option key={l.id} value={l.id}>{l.full_name}</option>)}</Select></Filter>
+          <Filter id="f-type" label="Task type"><Select id="f-type" className={inputCls} value={taskType} onChange={(e) => setTaskType(e.target.value)}><option value="">All task types</option>{ref.taskTypes.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}</Select></Filter>
+          <Filter id="f-af" label="Autofail"><Select id="f-af" className={inputCls} value={autofail} onChange={(e) => setAutofail(e.target.value as '' | 'yes' | 'no')}><option value="">Any</option><option value="yes">Autofail only</option><option value="no">Exclude autofails</option></Select></Filter>
           <Filter id="f-min" label="CAM average from (%)"><input id="f-min" type="number" min={0} max={100} className={inputBase + ' w-24'} value={minScore} onChange={(e) => setMinScore(e.target.value)} /></Filter>
           <Filter id="f-max" label="to (%)"><input id="f-max" type="number" min={0} max={100} className={inputBase + ' w-24'} value={maxScore} onChange={(e) => setMaxScore(e.target.value)} /></Filter>
-          <Filter id="f-appeal" label="Appeal status"><select id="f-appeal" className={inputCls} value={appealStatus} onChange={(e) => setAppealStatus(e.target.value as '' | AppealStatus)}><option value="">Any</option>{(Object.keys(APPEAL_STATUS_LABEL) as AppealStatus[]).map((k) => <option key={k} value={k}>{APPEAL_STATUS_LABEL[k]}</option>)}</select></Filter>
-          <Filter id="f-cam" label="CAM name"><select id="f-cam" className={inputCls} value={camPick} onChange={(e) => { setCamPick(e.target.value); if (e.target.value) setView('cam'); }}><option value="">All CAMs</option>{allCams.filter((c) => !leadId || (c.team_id && teamOfLead(leadId).includes(c.team_id))).sort((a, b) => a.full_name.localeCompare(b.full_name)).map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></Filter>
-          {categories.length > 0 && <Filter id="f-cat" label="Evaluation category"><select id="f-cat" className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">All categories</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></Filter>}
+          <Filter id="f-appeal" label="Appeal status"><Select id="f-appeal" className={inputCls} value={appealStatus} onChange={(e) => setAppealStatus(e.target.value as '' | AppealStatus)}><option value="">Any</option>{(Object.keys(APPEAL_STATUS_LABEL) as AppealStatus[]).map((k) => <option key={k} value={k}>{APPEAL_STATUS_LABEL[k]}</option>)}</Select></Filter>
+          <Filter id="f-cam" label="CAM name"><Select people id="f-cam" className={inputCls} value={camPick} onChange={(e) => { setCamPick(e.target.value); if (e.target.value) setView('cam'); }}><option value="">All CAMs</option>{allCams.filter((c) => !leadId || (c.team_id && teamOfLead(leadId).includes(c.team_id))).sort((a, b) => a.full_name.localeCompare(b.full_name)).map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</Select></Filter>
+          {categories.length > 0 && <Filter id="f-cat" label="Evaluation category"><Select id="f-cat" className={inputCls} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">All categories</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Filter>}
         </div>
       </Card>
       <ErrorBox error={data.error} />
@@ -155,7 +156,7 @@ export default function QaDashboard() {
           <Card title="Individual CAM view" subtitle="Choose a CAM to see their full dashboard here, or pick one from the table.">
             <div className="flex flex-col gap-3">
               <label htmlFor="f-cam-view" className="text-[13px] font-medium">CAM</label>
-              <select id="f-cam-view" className={inputCls + ' max-w-sm'} value={camPick} onChange={(e) => setCamPick(e.target.value)}><option value="">Choose a CAM…</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select>
+              <Select people id="f-cam-view" className={inputCls + ' max-w-sm'} value={camPick} onChange={(e) => setCamPick(e.target.value)}><option value="">Choose a CAM…</option>{cams.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</Select>
             </div>
           </Card>
         ))}

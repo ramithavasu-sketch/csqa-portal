@@ -20,7 +20,7 @@ let camEmail, lead;
 for (const [c, l] of [['sofia.alvarez', 'kavya.menon'], ['zara.hussain', 'omar.haddad'], ['priya.natarajan', 'omar.haddad'], ['lena.fischer', 'daniel.brooks'], ['noah.bennett', 'omar.haddad']]) {
   await login(`${c}@demo.csqa.test`);
   await page.goto(B + '/evaluations'); await page.waitForTimeout(600);
-  await page.selectOption('#ev-only', 'deducted'); await page.waitForTimeout(300);
+  await page.click('#ev-only'); await page.getByRole('option', { name: 'Below 100' }).click(); await page.waitForTimeout(300);
   const n = await page.locator('main tbody tr a:has-text("Details")').count();
   if (n) { camEmail = c; lead = l; await page.locator('main tbody tr a:has-text("Details")').first().click(); break; }
 }
