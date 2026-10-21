@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
-import { MessageSquarePlus, Star } from 'lucide-react';
+import { Bug, Lightbulb, MessageSquarePlus, Star } from 'lucide-react';
 import clsx from 'clsx';
 import { repo, isDemo } from '../data';
-import { Button, ErrorBox, Modal, textareaCls, useToast } from './ui';
+import { useAsync } from '../app/context';
+import { stageOf } from '../lib/feedbackStages';
+import { fmtDate } from '../lib/metrics';
+import { Button, ErrorBox, Modal, Pill, textareaCls, useToast } from './ui';
 
 const KINDS = [
-  { value: 'bug', label: 'Something isn’t working' },
-  { value: 'idea', label: 'Idea or suggestion' },
-  { value: 'question', label: 'Question' },
-  { value: 'other', label: 'Other' },
+  { value: 'bug', label: 'Something isn’t working', icon: Bug },
+  { value: 'idea', label: 'Idea or suggestion', icon: Lightbulb },
 ] as const;
 
 /** "Feedback" in the top bar: anyone can tell the QA team what to fix or improve in the portal. */
@@ -18,7 +19,9 @@ export function FeedbackButton() {
   const loc = useLocation();
   const toast = useToast();
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<(typeof KINDS)[number]['value']>('idea');
+  const [kind, setKind] = useState<(typeof KINDS)[number]['value']>('bug');
+  const [sent, setSent] = useState(0);
+  const mine = useAsync(() => (open ? repo.myFeedback() : Promise.resolve([])), [open, sent]);
   const [rating, setRating] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,7 +32,7 @@ export function FeedbackButton() {
     try {
       await repo.submitFeedback({ kind, message: msg, page, rating });
       toast(isDemo ? 'Thanks! (Demo: feedback is not sent anywhere.)' : 'Thanks! Your feedback was sent to the QA team.');
-      setOpen(false); setMsg(''); setRating(null); setKind('idea');
+      setOpen(false); setMsg(''); setRating(null); setKind('bug'); setSent((n) => n + 1);
     } catch (e) { setErr(e); } finally { setBusy(false); }
   };
   return (<>
@@ -43,9 +46,10 @@ export function FeedbackButton() {
         <p className="text-[13px] text-muted">Tell us what’s not working, what’s confusing or what would help. It goes to the QA team, who can reply to you by email.</p>
         <div>
           <div className="mb-1.5 text-[13px] font-medium">What is it about?</div>
-          <div className="flex flex-wrap gap-2">{KINDS.map((k) => (
+          <div className="grid grid-cols-2 gap-2">{KINDS.map((k) => (
             <button key={k.value} type="button" onClick={() => setKind(k.value)} aria-pressed={kind === k.value}
-              className={clsx('rounded-full border px-3 py-1 text-[13px]', kind === k.value ? 'border-brand bg-brand-soft font-medium text-brand' : 'border-line text-muted hover:text-ink')}>{k.label}</button>
+              className={clsx('flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-[13px] transition-colors', kind === k.value ? 'border-brand bg-brand-soft font-medium text-ink ring-1 ring-brand' : 'border-line text-muted hover:text-ink')}>
+              <k.icon className="h-4 w-4 shrink-0" aria-hidden />{k.label}</button>
           ))}</div>
         </div>
         <div>
@@ -62,6 +66,17 @@ export function FeedbackButton() {
           ))}</div>
         </div>
         <p className="text-[12px] text-muted">We’ll include the page you’re on ({page}) so we can see what you mean.</p>
+        {(mine.data?.length ?? 0) > 0 && (
+          <div className="border-t border-line pt-3">
+            <div className="mb-2 text-[13px] font-medium">Your feedback so far</div>
+            <ul className="flex max-h-48 flex-col gap-2 overflow-y-auto">{mine.data!.map((f) => (
+              <li key={f.id} className="rounded-md border border-line px-3 py-2 text-[12.5px]">
+                <div className="flex items-start justify-between gap-2"><span className="line-clamp-2">{f.message}</span><Pill tone={stageOf(f.status).tone}>{stageOf(f.status).label}</Pill></div>
+                <div className="mt-1 text-[11.5px] text-muted">Sent {fmtDate(f.created_at)}{f.resolved_at && f.status === 'fixed' ? ` · fixed ${fmtDate(f.resolved_at)}` : ''}</div>
+                {f.admin_note && <div className="mt-1 text-[12px] text-ink">QA: {f.admin_note}</div>}
+              </li>))}</ul>
+          </div>
+        )}
         <ErrorBox error={err} />
       </div>
     </Modal>, document.body)}

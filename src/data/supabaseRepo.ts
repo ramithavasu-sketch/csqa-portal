@@ -426,7 +426,14 @@ export class SupabaseRepo implements Repo {
     if (error) throw new Error(error.message);
     return (data ?? []) as Awaited<ReturnType<import('./repo').Repo['listFeedback']>>;
   }
-  async setFeedbackStatus(id: string, status: 'new' | 'done') { await this.rpc('set_portal_feedback_status', { p_id: id, p_status: status }); }
+  async setFeedbackStatus(id: string, status: import('../lib/types').PortalFeedbackStatus, note?: string) {
+    await this.rpc('set_portal_feedback_status', { p_id: id, p_status: status, p_note: note ?? null });
+  }
+  async myFeedback() {
+    const { data, error } = await this.sb.rpc('my_portal_feedback');
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Awaited<ReturnType<import('./repo').Repo['myFeedback']>>;
+  }
 
   // ---------------------------------------------------------------- notifications
   async listNotifications() {

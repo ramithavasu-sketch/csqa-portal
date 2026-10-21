@@ -1344,10 +1344,19 @@ export class DemoRepo implements Repo {
   async submitFeedback(f: { kind: string; message: string; page: string; rating: number | null }) {
     const me = this.me();
     this.require(f.message.trim().length >= 5, 'Write a few words about your feedback');
-    this.fbList.unshift({ id: uid(), created_at: nowIso(), kind: f.kind, rating: f.rating, message: f.message.trim(), page: f.page, status: 'new', sender_name: me.full_name, sender_email: me.email, sender_role: me.role });
+    this.fbList.unshift({ id: uid(), created_at: nowIso(), kind: f.kind, rating: f.rating, message: f.message.trim(), page: f.page, status: 'new', admin_note: null, status_changed_at: null, resolved_at: null, sender_name: me.full_name, sender_email: me.email, sender_role: me.role });
   }
   async listFeedback() { this.requireSuper(); return this.fbList; }
-  async setFeedbackStatus(id: string, status: 'new' | 'done') { this.requireSuper(); const x = this.fbList.find((f) => f.id === id); if (x) x.status = status; }
+  async setFeedbackStatus(id: string, status: import('../lib/types').PortalFeedbackStatus, note?: string) {
+    this.requireSuper();
+    const x = this.fbList.find((f) => f.id === id);
+    if (!x) return;
+    if (x.status !== status) x.status_changed_at = nowIso();
+    x.resolved_at = status === 'fixed' || status === 'declined' ? (x.resolved_at ?? nowIso()) : null;
+    x.status = status;
+    if (note !== undefined) x.admin_note = note.trim() || null;
+  }
+  async myFeedback() { const me = this.me(); return this.fbList.filter((f) => f.sender_email === me.email); }
 
   // ------------------------------------------------------------------ notifications
   async logExport(info: { scope: string; period: string; format: string }) {

@@ -123,10 +123,13 @@ export interface Repo {
   listFeedbackResponses(): Promise<FeedbackResponse[]>;
 
   // ---- portal feedback
-  submitFeedback(f: { kind: 'bug' | 'idea' | 'question' | 'other'; message: string; page: string; rating: number | null }): Promise<void>;
+  submitFeedback(f: { kind: 'bug' | 'idea'; message: string; page: string; rating: number | null }): Promise<void>;
   /** Super Admin only. */
-  listFeedback(): Promise<{ id: string; created_at: string; kind: string; rating: number | null; message: string; page: string | null; status: 'new' | 'done'; sender_name: string | null; sender_email: string | null; sender_role: string | null }[]>;
-  setFeedbackStatus(id: string, status: 'new' | 'done'): Promise<void>;
+  listFeedback(): Promise<import('../lib/types').PortalFeedbackItem[]>;
+  /** Super Admin: move an item along the tracker, optionally with a note for the sender. */
+  setFeedbackStatus(id: string, status: import('../lib/types').PortalFeedbackStatus, note?: string): Promise<void>;
+  /** The signed-in person's own feedback and its stage. */
+  myFeedback(): Promise<Pick<import('../lib/types').PortalFeedbackItem, 'id' | 'created_at' | 'kind' | 'message' | 'status' | 'admin_note' | 'resolved_at'>[]>;
 
   // ---- notifications
   listNotifications(): Promise<NotificationRow[]>;

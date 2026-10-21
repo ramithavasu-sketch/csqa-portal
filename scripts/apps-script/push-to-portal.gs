@@ -323,6 +323,7 @@ function reconcileRecentWeeks() {
   removed.forEach((r) => console.log('Removed from portal (no longer in the sheet): ' + r.week + ' ' + r.cam + ' ' + r.task_link));
   (res.kept_with_appeal || []).forEach((r) => console.log('Not in the sheet but kept (appeal / correction): ' + r.week + ' ' + r.cam + ' ' + r.task_link));
   (res.skipped || []).forEach((m) => console.log('Clean-up skipped ' + m));
+  (res.weeks_removed || []).forEach((w) => console.log('Removed empty week (no longer in the sheet): ' + w));
   return 'Clean-up: ' + removed.length + ' removed (last ' + recent.length + ' weeks match the sheet)';
 }
 

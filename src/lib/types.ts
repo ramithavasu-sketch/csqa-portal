@@ -154,6 +154,11 @@ export interface HistoricalCam { id: string; name: string; tasks: number; first_
 export interface SheetSyncResult { source: string; title?: string; inserted?: number; duplicates?: number; rejected?: number; error?: string }
 
 // ---- feedback sessions (every 3 audit weeks, CAM + Team Lead with a QA provider)
+export type PortalFeedbackStatus = 'new' | 'planned' | 'in_progress' | 'fixed' | 'declined';
+export interface PortalFeedbackItem {
+  id: string; created_at: string; kind: string; rating: number | null; message: string; page: string | null; status: PortalFeedbackStatus;
+  admin_note: string | null; status_changed_at: string | null; resolved_at: string | null; sender_name: string | null; sender_email: string | null; sender_role: string | null;
+}
 export type FeedbackStatus = 'not_booked' | 'booked' | 'completed' | 'cancelled' | 'no_audit';
 export interface FeedbackCycle { id: string; number: number; period_ids: string[]; book_by: string | null; released_at: string | null; created_at: string }
 export interface FeedbackWeek { period_id: string; label: string; evaluator: string | null; audits: number }
