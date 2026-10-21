@@ -4,6 +4,7 @@
 --     with the QA provider; the CAM's old appointment is labelled "Cancelled"
 --   * cancelled in the portal -> Setmore label "Cancelled"; completed -> "Complete"
 --   * labelled Complete in Setmore -> session Completed in the portal
+--   * CAMs pick a free slot inside the portal (booking_source 'portal'); it's created in Setmore
 --   * Setmore is checked every 5 minutes (was 10)
 -- Changes that came from Setmore itself are not sent back. Safe to run more than once.
 -- =============================================================================
@@ -48,7 +49,7 @@ begin
          where id = s.id;
         n_booked := n_booked + 1;
       end if;
-    elsif s.status = 'booked' and (s.booking_source = 'setmore' or s.booking_source = 'sheet')
+    elsif s.status = 'booked' and (s.booking_source in ('setmore', 'sheet', 'portal') or s.setmore_key is not null)
           and (a is not null or (s.booked_for >= p_from and s.setmore_key is not null)) then
       -- booked in Setmore earlier, now cancelled there (or gone from Setmore)
       update public.feedback_sessions set status = 'cancelled', booking_source = 'setmore', updated_at = now() where id = s.id;

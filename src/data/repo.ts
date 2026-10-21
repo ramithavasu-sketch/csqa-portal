@@ -108,6 +108,10 @@ export interface Repo {
   listFeedbackSessions(cycleId?: string): Promise<FeedbackSession[]>;
   /** CAM (or QA): record the time booked in Setmore. */
   markFeedbackBooked(sessionId: string, when: string): Promise<void>;
+  /** Free slots of the session's QA provider on a day (Setmore availability), as India times "HH:mm". */
+  listFeedbackSlots(sessionId: string, date: string): Promise<{ provider: string | null; slots: string[] }>;
+  /** CAM (or QA): book a free slot — creates the Setmore appointment; a rebooking cancels the old one. */
+  bookFeedbackSlot(sessionId: string, date: string, time: string): Promise<void>;
   /** CAM (or QA): cancel a recorded booking (status Cancelled; the CAM can book again). */
   clearFeedbackBooking(sessionId: string): Promise<void>;
   /** QA: change the provider and/or status. */

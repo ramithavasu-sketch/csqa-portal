@@ -163,7 +163,7 @@ export interface FeedbackSession {
   provider_id: string | null; provider_name: string | null; provider_auto: boolean; weeks: FeedbackWeek[];
   status: FeedbackStatus; booked_for: string | null; booked_at: string | null; completed_at: string | null;
   /** who recorded the booking: the CAM, QA, or the Setmore 'Booked Sessions' sheet */
-  booking_source?: 'cam' | 'qa' | 'sheet' | 'setmore' | null;
+  booking_source?: 'cam' | 'qa' | 'sheet' | 'setmore' | 'portal' | null;
   /** the QA member the CAM actually booked with in Setmore */
   booked_with_name?: string | null;
 }

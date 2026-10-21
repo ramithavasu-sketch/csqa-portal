@@ -394,6 +394,17 @@ export class SupabaseRepo implements Repo {
     return (data ?? []) as import('../lib/types').FeedbackSession[];
   }
   async markFeedbackBooked(sessionId: string, when: string) { await this.rpc('mark_feedback_booked', { p_session: sessionId, p_when: when }); }
+  async listFeedbackSlots(sessionId: string, date: string) {
+    const { data, error } = await this.sb.functions.invoke('setmore', { body: { action: 'slots', session: sessionId, date } });
+    if (error) throw new Error(await fnErrorMessage(error));
+    if (data?.error) throw new Error(data.error);
+    return { provider: data?.provider ?? null, slots: (data?.slots ?? []) as string[] };
+  }
+  async bookFeedbackSlot(sessionId: string, date: string, time: string) {
+    const { data, error } = await this.sb.functions.invoke('setmore', { body: { action: 'book', session: sessionId, date, time } });
+    if (error) throw new Error(await fnErrorMessage(error));
+    if (data?.error) throw new Error(data.error);
+  }
   async clearFeedbackBooking(sessionId: string) { await this.rpc('clear_feedback_booking', { p_session: sessionId }); }
   async updateFeedbackSession(sessionId: string, patch: { providerId?: string; status?: import('../lib/types').FeedbackStatus }) {
     await this.rpc('update_feedback_session', { p_session: sessionId, p_provider: patch.providerId ?? null, p_status: patch.status ?? null });

@@ -1317,6 +1317,13 @@ export class DemoRepo implements Repo {
     this.require(!!s && (s.cam_id === this.me().id || this.isQa()), 'Only the CAM (or QA) can record this booking');
     this.fb.set(sessionId, { ...this.fb.get(sessionId), status: 'booked', booked_for: when, booked_at: nowIso() });
   }
+  async listFeedbackSlots(_sessionId: string, date: string) {
+    const day = new Date(`${date}T12:00:00+05:30`).getUTCDay();
+    return { provider: null, slots: day === 0 || day === 6 ? [] : ['10:00', '11:00', '14:00', '15:00', '16:00'] };
+  }
+  async bookFeedbackSlot(sessionId: string, date: string, time: string) {
+    await this.markFeedbackBooked(sessionId, new Date(`${date}T${time}:00+05:30`).toISOString());
+  }
   async clearFeedbackBooking(sessionId: string) {
     const s = (await this.listFeedbackSessions()).find((x) => x.id === sessionId);
     this.require(!!s && (s.cam_id === this.me().id || this.isQa()), 'Only the CAM (or QA) can cancel this booking');

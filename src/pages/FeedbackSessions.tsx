@@ -16,13 +16,6 @@ const STATUS: Record<FeedbackStatus, { label: string; tone: 'neutral' | 'good' |
 };
 const StatusPill = ({ s }: { s: FeedbackStatus }) => <Pill tone={STATUS[s].tone}>{STATUS[s].label}</Pill>;
 const overdue = (f: FeedbackSession) => (f.status === 'not_booked' || f.status === 'cancelled') && !!f.book_by && f.book_by < new Date().toISOString().slice(0, 10);
-/** value for <input type="datetime-local"> in the browser's time zone */
-const toLocalInput = (iso: string | null) => {
-  if (!iso) return '';
-  const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-};
-
 /** Feedback sessions every 3 audit weeks: CAMs book with their QA provider (Team Lead joins). */
 export default function FeedbackSessionsPage() {
   const { me } = useApp();
@@ -77,19 +70,10 @@ function MySession({ s, weekNames }: { s: FeedbackSession; weekNames: string }) 
   const ref = useRef_();
   const toast = useToast();
   const { bump } = useApp();
-  const [when, setWhen] = useState(s.status === 'cancelled' ? '' : toLocalInput(s.booked_for));
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<unknown>(null);
   const [editing, setEditing] = useState(s.status === 'not_booked' || s.status === 'cancelled');
   const [removing, setRemoving] = useState(false);
-  useEffect(() => { if (s.status === 'cancelled') { setWhen(''); setEditing(true); } }, [s.status]);
-  const url = ref.settings.feedback?.booking_url;
+  useEffect(() => { if (s.status === 'cancelled') setEditing(true); }, [s.status]);
   const form = ref.settings.feedback?.form_url;
-  const save = async () => {
-    setBusy(true); setErr(null);
-    try { await repo.markFeedbackBooked(s.id, new Date(when).toISOString()); toast('Booking saved. Your Team Lead and QA can see it.'); setEditing(false); bump(); }
-    catch (e) { setErr(e); } finally { setBusy(false); }
-  };
   return (
     <Card title={`Your feedback session · Session ${s.cycle_number}`} subtitle={`Audit weeks ${weekNames}`} actions={<StatusPill s={s.status} />}>
       {s.status === 'no_audit' ? <p className="text-[13.5px] text-muted">You had no audits in these weeks, so there is no session to book this cycle.</p> : (
@@ -101,7 +85,7 @@ function MySession({ s, weekNames }: { s: FeedbackSession; weekNames: string }) 
           </div>
           {s.status === 'completed' ? <p className="rounded bg-good-soft px-3 py-2 text-good">Session completed{s.completed_at ? ` on ${fmtDate(s.completed_at)}` : ''}. Thank you for filling in the feedback form.</p> : (<>
             {s.status === 'booked' && !editing && (<>
-              <p className="rounded bg-info-soft px-3 py-2 text-info">Booked for <strong>{fmtDateTime(s.booked_for)}</strong>{s.booking_source === 'sheet' || s.booking_source === 'setmore' ? ' (from Setmore)' : ''}{s.booked_with_name && s.booked_with_name !== s.provider_name ? ` with ${s.booked_with_name}` : ''}. <button className="font-semibold underline" onClick={() => setEditing(true)}>Change time</button>
+              <p className="rounded bg-info-soft px-3 py-2 text-info">Booked for <strong>{fmtDateTime(s.booked_for)}</strong>{s.booking_source === 'sheet' || s.booking_source === 'setmore' ? ' (from Setmore)' : ''}{s.booking_source === 'portal' ? ' (in Setmore)' : ''}{s.booked_with_name && s.booked_with_name !== s.provider_name ? ` with ${s.booked_with_name}` : ''}. <button className="font-semibold underline" onClick={() => setEditing(true)}>Change time</button>
                 {' · '}<button className="font-semibold underline" onClick={() => setRemoving(true)}>Cancel booking</button></p>
               <div>After the session, fill in the feedback form. The portal marks the session completed when your response arrives.
                 <div className="mt-2">{form ? <a href={form} target="_blank" rel="noreferrer"><Button type="button" variant="secondary"><ExternalLink className="h-4 w-4" />Open feedback form</Button></a>
@@ -110,34 +94,78 @@ function MySession({ s, weekNames }: { s: FeedbackSession; weekNames: string }) 
             {s.status === 'cancelled' && (
               <div className="flex flex-wrap items-center gap-3 rounded bg-bad-soft px-3 py-2 text-bad">
                 <span>Your booking{s.booked_for ? ` for ${fmtDateTime(s.booked_for)}` : ''} was cancelled. Rebook a new slot before {fmtDate(s.book_by)}.</span>
-                {url && <a href={url} target="_blank" rel="noreferrer"><Button type="button" size="sm"><RefreshCw className="h-4 w-4" />Rebook in Setmore</Button></a>}
               </div>
             )}
             {editing && (
               <ol className="flex flex-col gap-3">
-                <li><strong>1.</strong> Book a slot with <strong>{s.provider_name ?? 'your QA provider'}</strong> in Setmore, and invite {s.lead_name ? <strong>{s.lead_name}</strong> : 'your Team Lead'}.
-                  <div className="mt-2">{url ? <a href={url} target="_blank" rel="noreferrer"><Button type="button" variant={s.status === 'cancelled' ? 'secondary' : 'primary'}><ExternalLink className="h-4 w-4" />{s.status === 'cancelled' ? 'Rebook in Setmore' : 'Book in Setmore'}</Button></a>
-                    : <span className="text-warn">QA has not added the booking link yet.</span>}</div></li>
-                <li><strong>2.</strong> Your Setmore booking shows here automatically within about 5 minutes. Or enter the date and time here — it's booked in Setmore with your QA provider for you.
-                  <div className="mt-2 flex flex-wrap items-end gap-2">
-                    <input aria-label="Booked date and time" type="datetime-local" className={inputBase + ' w-auto'} value={when} onChange={(e) => setWhen(e.target.value)} />
-                    <Button variant="secondary" loading={busy} disabled={!when} onClick={save}><CalendarCheck className="h-4 w-4" />{s.status === 'cancelled' ? 'Save my new booking' : 'Save my booking'}</Button>
-                    {s.status === 'booked' && <Button variant="ghost" onClick={() => setEditing(false)}>Keep current time</Button>}
-                  </div></li>
-                <li><strong>3.</strong> After the session, fill in the feedback form. The portal marks the session completed when your response arrives.
+                <li><strong>1.</strong> {s.status === 'booked' ? 'Pick a new time' : 'Pick a time'} with <strong>{s.provider_name ?? 'your QA provider'}</strong>. {s.lead_name ? <><strong>{s.lead_name}</strong> (your Team Lead) joins too.</> : 'Your Team Lead joins too.'}
+                  <SlotPicker s={s} onBooked={() => { setEditing(false); bump(); }} onKeep={s.status === 'booked' ? () => setEditing(false) : undefined} /></li>
+                <li><strong>2.</strong> After the session, fill in the feedback form. The portal marks the session completed when your response arrives.
                   <div className="mt-2">{form ? <a href={form} target="_blank" rel="noreferrer"><Button type="button" variant="secondary"><ExternalLink className="h-4 w-4" />Open feedback form</Button></a>
                     : <span className="text-warn">QA has not added the feedback form link yet.</span>}</div></li>
               </ol>
             )}
-            <ErrorBox error={err} />
           </>)}
           <WeekBreakdown s={s} />
           <ConfirmModal open={removing} title="Cancel this booking?" confirmLabel="Cancel booking" danger onClose={() => setRemoving(false)}
-            onConfirm={async () => { await repo.clearFeedbackBooking(s.id); setEditing(true); setTimeout(() => setWhen(''), 0); toast('Booking cancelled. Please book a new slot before the deadline.'); bump(); }}
+            onConfirm={async () => { await repo.clearFeedbackBooking(s.id); setEditing(true); toast('Booking cancelled. Please book a new slot before the deadline.'); bump(); }}
             body={<p>Your session on <strong>{fmtDateTime(s.booked_for)}</strong> will show as <strong>Cancelled</strong> for you, your Team Lead and QA, and in the Booked Sessions sheet. Its Setmore appointment is labelled Cancelled automatically. Then book a new slot.</p>} />
         </div>
       )}
     </Card>
+  );
+}
+
+const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });   // YYYY-MM-DD in India
+const ampm = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+
+/** Book inside the portal: pick a day, see the QA provider's free Setmore slots, confirm. */
+function SlotPicker({ s, onBooked, onKeep }: { s: FeedbackSession; onBooked: () => void; onKeep?: () => void }) {
+  const toast = useToast();
+  const days = useMemo(() => Array.from({ length: 21 }, (_, i) => new Date(Date.now() + i * 86400000)), []);
+  const [day, setDay] = useState(ymd(days[0]));
+  const [time, setTime] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+  const [tick, setTick] = useState(0);
+  const slots = useAsync(() => repo.listFeedbackSlots(s.id, day), [s.id, day, tick]);
+  useEffect(() => setTime(''), [day]);
+  const dayLabel = (d: string) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+  const book = async () => {
+    setBusy(true); setErr(null);
+    try {
+      await repo.bookFeedbackSlot(s.id, day, time);
+      toast(`Booked for ${dayLabel(day)}, ${ampm(time)} IST. It's in Setmore, and your Team Lead and QA can see it.`);
+      onBooked();
+    } catch (e) { setErr(e); setTick((n) => n + 1); } finally { setBusy(false); }
+  };
+  return (
+    <div className="mt-2 flex flex-col gap-3 rounded border border-line p-3">
+      <div>
+        <div className="mb-1.5 text-[12px] font-medium text-muted">Choose a date</div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {days.map((d) => { const v = ymd(d); const late = !!s.book_by && v > s.book_by; return (
+            <button key={v} type="button" onClick={() => setDay(v)}
+              className={'shrink-0 rounded border px-2.5 py-1.5 text-[12.5px] ' + (v === day ? 'border-brand bg-brand text-white' : 'border-line hover:border-brand') + (late && v !== day ? ' text-muted' : '')}>
+              {dayLabel(v)}</button>); })}
+        </div>
+        {!!s.book_by && day > s.book_by && <div className="mt-1 text-[12px] text-warn">This is after the book-by date ({fmtDate(s.book_by)}).</div>}
+      </div>
+      <div>
+        <div className="mb-1.5 text-[12px] font-medium text-muted">Choose a time (India time, IST)</div>
+        {slots.loading ? <Loading /> : slots.error ? <ErrorBox error={slots.error} /> : !slots.data?.slots.length
+          ? <p className="text-[13px] text-muted">No free slots on {dayLabel(day)} — try another date.</p>
+          : <div className="flex flex-wrap gap-1.5">{slots.data.slots.map((t) => (
+              <button key={t} type="button" onClick={() => setTime(t)}
+                className={'rounded border px-3 py-1.5 text-[13px] ' + (t === time ? 'border-brand bg-brand text-white' : 'border-line hover:border-brand')}>{ampm(t)}</button>))}</div>}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button loading={busy} disabled={!time} onClick={book}><CalendarCheck className="h-4 w-4" />{time ? `Book ${dayLabel(day)}, ${ampm(time)}` : 'Book this slot'}</Button>
+        {onKeep && <Button variant="ghost" onClick={onKeep}>Keep current time</Button>}
+        {s.status === 'booked' && <span className="text-[12px] text-muted">Your current booking is cancelled in Setmore when you book the new time.</span>}
+      </div>
+      <ErrorBox error={err} />
+    </div>
   );
 }
 
@@ -235,7 +263,7 @@ function QaView({ cycle, weekNames, list }: { cycle: { id: string; number: numbe
               </select>
               {overdue(s) && <div className="text-[11.5px] text-bad">Overdue</div>}
             </td>
-            <td className={td + ' whitespace-nowrap'}>{s.booked_for ? fmtDateTime(s.booked_for) : '—'}{s.booking_source && <div className="text-[11px] text-muted">{{ sheet: 'From Setmore', setmore: 'From Setmore', cam: 'Entered by CAM', qa: 'Entered by QA' }[s.booking_source]}{s.booked_with_name && s.booked_with_name !== s.provider_name ? <span className="text-warn"> · booked with {s.booked_with_name}</span> : null}</div>}</td>
+            <td className={td + ' whitespace-nowrap'}>{s.booked_for ? fmtDateTime(s.booked_for) : '—'}{s.booking_source && <div className="text-[11px] text-muted">{{ sheet: 'From Setmore', setmore: 'From Setmore', portal: 'Booked in portal', cam: 'Entered by CAM', qa: 'Entered by QA' }[s.booking_source]}{s.booked_with_name && s.booked_with_name !== s.provider_name ? <span className="text-warn"> · booked with {s.booked_with_name}</span> : null}</div>}</td>
           </tr>
         ))}</tbody>
       </Table>
