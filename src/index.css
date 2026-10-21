@@ -50,3 +50,12 @@ h1, h2, h3 { text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 .recharts-text { fill: rgb(var(--muted)); font-size: 11px; }
 .recharts-cartesian-grid line { stroke: rgb(var(--line)); }
+
+/* theme toggle icon: sun in light, moon in dark */
+.dark-show { opacity: 0; transform: rotate(-90deg) scale(0); }
+:root[data-theme="dark"] .dark-hide { opacity: 0; transform: rotate(90deg) scale(0); }
+:root[data-theme="dark"] .dark-show { opacity: 1; transform: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dark-hide { opacity: 0; transform: rotate(90deg) scale(0); }
+  :root:not([data-theme="light"]) .dark-show { opacity: 1; transform: none; }
+}

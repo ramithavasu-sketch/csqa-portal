@@ -140,7 +140,7 @@ function SlotPicker({ s, onBooked, onKeep }: { s: FeedbackSession; onBooked: () 
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {days.map((d) => { const v = ymd(d); const late = !!s.book_by && v > s.book_by; return (
             <button key={v} type="button" onClick={() => setDay(v)}
-              className={'shrink-0 rounded border px-2.5 py-1.5 text-[12.5px] ' + (v === day ? 'border-brand bg-brand text-white' : 'border-line hover:border-brand') + (late && v !== day ? ' text-muted' : '')}>
+              className={'shrink-0 rounded border px-2.5 py-1.5 text-[12.5px] ' + (v === day ? 'border-brand bg-brand text-brand-ink' : 'border-line hover:border-brand') + (late && v !== day ? ' text-muted' : '')}>
               {dayLabel(v)}</button>); })}
         </div>
         {!!s.book_by && day > s.book_by && <div className="mt-1 text-[12px] text-warn">This is after the book-by date ({fmtDate(s.book_by)}).</div>}
@@ -151,7 +151,7 @@ function SlotPicker({ s, onBooked, onKeep }: { s: FeedbackSession; onBooked: () 
           ? <p className="text-[13px] text-muted">No free slots on {dayLabel(day)} — try another date.</p>
           : <div className="flex flex-wrap gap-1.5">{slots.data.slots.map((t) => (
               <button key={t} type="button" onClick={() => setTime(t)}
-                className={'rounded border px-3 py-1.5 text-[13px] ' + (t === time ? 'border-brand bg-brand text-white' : 'border-line hover:border-brand')}>{ampm(t)}</button>))}</div>}
+                className={'rounded border px-3 py-1.5 text-[13px] ' + (t === time ? 'border-brand bg-brand text-brand-ink' : 'border-line hover:border-brand')}>{ampm(t)}</button>))}</div>}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button loading={busy} disabled={!time} onClick={book}><CalendarCheck className="h-4 w-4" />{time ? `Book ${dayLabel(day)}, ${ampm(time)}` : 'Book this slot'}</Button>

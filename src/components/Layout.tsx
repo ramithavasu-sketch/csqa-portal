@@ -8,6 +8,7 @@ import { useApp, useAsync } from '../app/context';
 import { repo, demoRepo, localRepo, isGoogle } from '../data';
 import { AutoSheetSync } from './SheetSync';
 import { FeedbackButton } from './FeedbackButton';
+import { ThemeToggle } from './ThemeToggle';
 import { fmtDateTime } from '../lib/metrics';
 
 const ROLE_LABEL = { super_admin: 'QA · Super Admin', evaluator: 'QA · Evaluator', manager: 'Team Manager', admin: 'Team Lead · Admin', user: 'CAM · User' } as const;
@@ -81,6 +82,7 @@ export default function Layout() {
             <span className="hidden sm:inline"> · {ROLE_LABEL[me.role]}{me.team_name ? ` · ${me.team_name}` : ''}</span>
           </div>
           <FeedbackButton />
+          <ThemeToggle />
           <NotificationBell key={dataVersion} />
         </header>
         <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-5 sm:px-6"><Outlet /></main>
