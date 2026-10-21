@@ -15,7 +15,8 @@ $AS ${BIN}createdb $U "$DB"
 $PSQL -d "$DB" -f supabase/tests/00_supabase_shim.sql
 for f in supabase/migrations/*.sql; do
   echo "applying $f"
-  $PSQL -d "$DB" -f "$f"
+  # pg_cron / pg_net are stand-ins from the shim locally
+  sed -E '/create extension if not exists (pg_cron|pg_net)/d' "$f" | $PSQL -d "$DB" -f -
 done
 $PSQL -d "$DB" -c "grant all on all tables in schema public to service_role; grant all on all sequences in schema public to service_role;"
 echo "running tests"

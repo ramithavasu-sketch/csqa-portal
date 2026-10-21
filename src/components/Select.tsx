@@ -110,7 +110,7 @@ export function Select({ id, value, onChange, disabled, className, children, peo
     <>
       <button ref={btn} id={id} type="button" role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-label={rest['aria-label']} disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        onKeyDown={(e) => { if (!open && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(true); } }}
+        onKeyDown={(e) => { if (open) onKey(e); else if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } }}
         className={clsx('inline-flex items-center justify-between gap-2 rounded-md border border-line bg-surface text-left text-ink shadow-xs transition-[color,box-shadow] hover:bg-sunken/50',
           'focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50',
           small ? 'h-8 px-2.5 text-[12.5px]' : 'h-9 px-3 text-sm', open && 'border-ring ring-[3px] ring-ring/30', sizing)}>
